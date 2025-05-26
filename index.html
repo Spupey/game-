@@ -2,446 +2,453 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<title>Шахтерский кликер — Полноценная игра</title>
+<title>Deep Mine Clicker — Полноценный кликер</title>
 <style>
+  /* Общий стиль */
   body {
     margin: 0;
-    background: #0e1628;
+    background: #101820;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #ddd;
+    color: #eee;
     user-select: none;
     overflow: hidden;
   }
   #gameCanvas {
     display: block;
     margin: 20px auto 0;
-    background: #1b223b;
-    border-radius: 15px;
-    box-shadow: 0 0 20px #000a;
+    background: #15202b;
+    border-radius: 20px;
+    box-shadow: 0 0 30px #001522aa;
   }
   #uiPanel {
-    width: 600px;
-    margin: 15px auto;
-    background: rgba(15, 20, 30, 0.9);
-    border-radius: 12px;
-    box-shadow: 0 0 15px #4466ccaa;
-    padding: 12px 16px;
+    width: 720px;
+    margin: 20px auto;
+    background: rgba(10, 20, 35, 0.95);
+    border-radius: 20px;
+    box-shadow: 0 0 20px #224488cc;
+    padding: 15px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  #coalCount {
-    font-size: 20px;
+  #stats, #upgrades {
+    display: flex;
+    gap: 25px;
+  }
+  #stats > div, #upgrades > button {
+    font-size: 18px;
     font-weight: 700;
   }
   button {
-    background: #2a334f;
-    color: #aabbcc;
+    background: #214270;
+    color: #aaccff;
     border: none;
-    border-radius: 10px;
-    padding: 10px 16px;
-    font-size: 14px;
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 16px;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: background 0.3s ease;
+    box-shadow: 0 4px 10px #184060aa;
   }
   button:disabled {
-    background: #1a2131;
-    color: #666;
+    background: #0a2a4a;
+    color: #557799;
     cursor: not-allowed;
+    box-shadow: none;
   }
   button:hover:not(:disabled) {
-    background: #42527a;
-  }
-  #upgradePanel {
-    display: flex;
-    gap: 15px;
+    background: #2e5a98;
   }
   #messages {
-    text-align: center;
-    margin-top: 5px;
-    min-height: 18px;
-    font-size: 14px;
+    width: 720px;
+    margin: 0 auto;
+    height: 24px;
     color: #88cc88;
     font-weight: 600;
+    font-size: 16px;
+    text-align: center;
+    user-select: none;
   }
 </style>
 </head>
 <body>
 
 <div id="uiPanel">
-  <div id="coalCount">Уголь: 0</div>
-  <div id="upgradePanel">
-    <button id="upgradePickaxe">Улучшить кирку (x1.5)</button>
-    <button id="upgradeAutoMine">Автоматическая добыча (0.5 сек)</button>
+  <div id="stats">
+    <div id="coalCount">Уголь: 0</div>
+    <div id="perClick">За клик: 1</div>
+    <div id="perSecond">Авто добыча: 0</div>
+  </div>
+  <div id="upgrades">
+    <button id="upgradePickaxeBtn">Улучшить кирку (15)</button>
+    <button id="upgradeAutoMineBtn">Авто-добыча (30)</button>
   </div>
 </div>
 <div id="messages"></div>
-<canvas id="gameCanvas" width="600" height="400"></canvas>
+<canvas id="gameCanvas" width="720" height="450"></canvas>
 
 <script>
 (() => {
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
 
-  // Звуки
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Аудиоконтекст для звуков
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  const audioCtx = new AudioContext();
+
+  // Функция звука клика (короткий "щелчок")
   function playClickSound() {
     const osc = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    osc.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
+    const gain = audioCtx.createGain();
     osc.type = 'triangle';
-    osc.frequency.value = 400 + Math.random()*200;
-    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    osc.frequency.setValueAtTime(400 + Math.random()*300, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
     osc.start();
     osc.stop(audioCtx.currentTime + 0.1);
-    osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1);
   }
 
-  // --- Игра ---
-  let coal = 0;
-  let coalPerClick = 1;
-  let coalPerSecond = 0;
-  let autoMineInterval = 2000; // мс
-  let lastAutoMine = 0;
-
-  // Кирки с уровнями
-  let pickaxeLevel = 1;
-  let pickaxeUpgradeCost = 15;
-
-  // Авто-добыча
-  let autoMineLevel = 0;
-  let autoMineUpgradeCost = 30;
-
-  // Частицы клика
-  const particles = [];
-
-  // Создание частицы
-  function createParticle(x, y) {
-    return {
-      x, y,
-      size: 4 + Math.random() * 4,
-      speedX: (Math.random() - 0.5) * 3,
-      speedY: -2 - Math.random() * 2,
-      alpha: 1,
-      decay: 0.02 + Math.random() * 0.02,
-      color: `hsl(0,0%,${20 + Math.random()*40}%)`
-    };
-  }
-
-  // UI элементы
-  const coalCountEl = document.getElementById('coalCount');
-  const upgradePickaxeBtn = document.getElementById('upgradePickaxe');
-  const upgradeAutoMineBtn = document.getElementById('upgradeAutoMine');
-  const messagesEl = document.getElementById('messages');
-
-  function showMessage(text) {
-    messagesEl.textContent = text;
-    setTimeout(() => {
-      if(messagesEl.textContent === text) messagesEl.textContent = '';
-    }, 2000);
-  }
-
-  // Обновление UI
-  function updateUI() {
-    coalCountEl.textContent = `Уголь: ${Math.floor(coal)}`;
-    upgradePickaxeBtn.textContent = `Улучшить кирку (x1.5) - ${pickaxeUpgradeCost} угля`;
-    upgradeAutoMineBtn.textContent = `Авто-добыча (0.5 сек) - ${autoMineUpgradeCost} угля`;
-    upgradePickaxeBtn.disabled = coal < pickaxeUpgradeCost;
-    upgradeAutoMineBtn.disabled = coal < autoMineUpgradeCost;
-  }
-
-  // Улучшить кирку
-  upgradePickaxeBtn.onclick = () => {
-    if(coal >= pickaxeUpgradeCost) {
-      coal -= pickaxeUpgradeCost;
-      pickaxeLevel++;
-      coalPerClick *= 1.5;
-      pickaxeUpgradeCost = Math.floor(pickaxeUpgradeCost * 2.5);
-      updateUI();
-      showMessage('Кирка улучшена! Выдача угля увеличена.');
+  // Класс Игрока (статистика, ресурсы)
+  class Player {
+    constructor() {
+      this.coal = 0;
+      this.coalPerClick = 1;
+      this.coalPerSecond = 0;
+      this.pickaxeLevel = 1;
+      this.pickaxeUpgradeCost = 15;
+      this.autoMineLevel = 0;
+      this.autoMineUpgradeCost = 30;
     }
-  };
 
-  // Улучшить авто-добычу
-  upgradeAutoMineBtn.onclick = () => {
-    if(coal >= autoMineUpgradeCost) {
-      coal -= autoMineUpgradeCost;
-      autoMineLevel++;
-      coalPerSecond += 1;
-      autoMineUpgradeCost = Math.floor(autoMineUpgradeCost * 3);
-      autoMineInterval = Math.max(500, autoMineInterval - 200); // сокращаем интервал
-      updateUI();
-      showMessage('Автоматическая добыча улучшена!');
+    addCoal(amount) {
+      this.coal += amount;
     }
-  };
 
-  // Анимация искр и частиц
-  function updateParticles() {
-    for(let i = particles.length - 1; i >= 0; i--) {
-      const p = particles[i];
-      p.x += p.speedX;
-      p.y += p.speedY;
-      p.alpha -= p.decay;
-      p.size *= 0.95;
-      if(p.alpha <= 0 || p.size <= 0) {
-        particles.splice(i, 1);
+    canBuy(cost) {
+      return this.coal >= cost;
+    }
+
+    buyPickaxeUpgrade() {
+      if(this.canBuy(this.pickaxeUpgradeCost)) {
+        this.coal -= this.pickaxeUpgradeCost;
+        this.pickaxeLevel++;
+        this.coalPerClick *= 1.5;
+        this.pickaxeUpgradeCost = Math.floor(this.pickaxeUpgradeCost * 2.5);
+        return true;
+      }
+      return false;
+    }
+
+    buyAutoMineUpgrade() {
+      if(this.canBuy(this.autoMineUpgradeCost)) {
+        this.coal -= this.autoMineUpgradeCost;
+        this.autoMineLevel++;
+        this.coalPerSecond += 1;
+        this.autoMineUpgradeCost = Math.floor(this.autoMineUpgradeCost * 3);
+        return true;
+      }
+      return false;
+    }
+  }
+
+  // Класс Частицы для анимации (пыли, искр)
+  class Particle {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.size = 3 + Math.random()*4;
+      this.speedX = (Math.random()-0.5)*2;
+      this.speedY = -1 - Math.random()*2;
+      this.alpha = 1;
+      this.decay = 0.02 + Math.random()*0.02;
+      this.color = `rgba(200,200,200,${this.alpha})`;
+    }
+    update() {
+      this.x += this.speedX;
+      this.y += this.speedY;
+      this.alpha -= this.decay;
+      this.size *= 0.95;
+    }
+    draw(ctx) {
+      ctx.save();
+      ctx.fillStyle = `rgba(200,200,200,${this.alpha})`;
+      ctx.beginPath();
+      ctx.ellipse(this.x, this.y, this.size, this.size*0.6, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // Основной класс игры
+  class Game {
+    constructor() {
+      this.player = new Player();
+      this.particles = [];
+      this.lastAutoMineTime = 0;
+      this.autoMineInterval = 2000;
+      this.sparkle = 0;
+      this.flamePhase = 0;
+
+      // UI элементы
+      this.coalCountEl = document.getElementById('coalCount');
+      this.perClickEl = document.getElementById('perClick');
+      this.perSecondEl = document.getElementById('perSecond');
+      this.upgradePickaxeBtn = document.getElementById('upgradePickaxeBtn');
+      this.upgradeAutoMineBtn = document.getElementById('upgradeAutoMineBtn');
+      this.messagesEl = document.getElementById('messages');
+
+      // Привязка событий
+      canvas.addEventListener('click', (e) => this.handleClick(e));
+      this.upgradePickaxeBtn.addEventListener('click', () => this.buyPickaxeUpgrade());
+      this.upgradeAutoMineBtn.addEventListener('click', () => this.buyAutoMineUpgrade());
+
+      this.loadProgress();
+      this.updateUI();
+      requestAnimationFrame((time) => this.gameLoop(time));
+    }
+
+    handleClick(e) {
+      this.player.addCoal(this.player.coalPerClick);
+      this.spawnParticles(e.offsetX, e.offsetY);
+      playClickSound();
+      this.updateUI();
+      this.showMessage(`+${this.player.coalPerClick} угля`);
+    }
+
+    spawnParticles(x, y) {
+      for(let i=0; i<8; i++) {
+        this.particles.push(new Particle(x, y));
       }
     }
-  }
-  function drawParticles() {
-    particles.forEach(p => {
-      ctx.fillStyle = `rgba(50,50,50,${p.alpha})`;
-      ctx.beginPath();
-      ctx.ellipse(p.x, p.y, p.size, p.size*0.6, 0, 0, 2*Math.PI);
-      ctx.fill();
-    });
-  }
 
-  // Фон и анимация
-  let sparkle = 0;
-  let flamePhase = 0;
-
-  function drawBackground() {
-    // Градиент фона - шахта
-    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    grad.addColorStop(0, '#1a2237');
-    grad.addColorStop(0.7, '#0d121f');
-    grad.addColorStop(1, '#070a13');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Камни
-    for(let i=0; i<8; i++) {
-      const size = 30;
-      let x = i * 70 + 20 + 10 * Math.sin(i + sparkle);
-      let y = 320 + 10 * Math.cos(i + sparkle * 0.5);
-      ctx.fillStyle = '#5a5a6a';
-      ctx.fillRect(x, y, size, size);
-
-      ctx.strokeStyle = '#4a4a5a';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x+5,y+5);
-      ctx.lineTo(x+size-5,y+size-5);
-      ctx.moveTo(x+size-5,y+5);
-      ctx.lineTo(x+5,y+size-5);
-      ctx.stroke();
+    buyPickaxeUpgrade() {
+      if(this.player.buyPickaxeUpgrade()) {
+        this.updateUI();
+        this.showMessage(`Кирка улучшена до уровня ${this.player.pickaxeLevel}!`);
+        this.saveProgress();
+      } else {
+        this.showMessage(`Недостаточно угля для улучшения кирки!`);
+      }
     }
 
-    // Уголь блоки
-    for(let i=0; i<6; i++) {
-      const size = 20;
-      let x = 60 + i * 90 + 12 * Math.cos(i + sparkle * 0.7);
-      let y = 280 + 7 * Math.sin(i * 2 + sparkle);
-      ctx.fillStyle = '#111111';
-      ctx.shadowColor = '#333';
+    buyAutoMineUpgrade() {
+      if(this.player.buyAutoMineUpgrade()) {
+        this.updateUI();
+        this.showMessage(`Авто-добыча улучшена до уровня ${this.player.autoMineLevel}!`);
+        this.saveProgress();
+      } else {
+        this.showMessage(`Недостаточно угля для авто-добычи!`);
+      }
+    }
+
+    updateUI() {
+      this.coalCountEl.textContent = `Уголь: ${Math.floor(this.player.coal)}`;
+      this.perClickEl.textContent = `За клик: ${Math.floor(this.player.coalPerClick)}`;
+      this.perSecondEl.textContent = `Авто добыча: ${Math.floor(this.player.coalPerSecond)}`;
+      this.upgradePickaxeBtn.textContent = `Улучшить кирку (${this.player.pickaxeUpgradeCost})`;
+      this.upgradeAutoMineBtn.textContent = `Авто-добыча (${this.player.autoMineUpgradeCost})`;
+      this.upgradePickaxeBtn.disabled = !this.player.canBuy(this.player.pickaxeUpgradeCost);
+      this.upgradeAutoMineBtn.disabled = !this.player.canBuy(this.player.autoMineUpgradeCost);
+    }
+
+    showMessage(text) {
+      this.messagesEl.textContent = text;
+      clearTimeout(this.msgTimeout);
+      this.msgTimeout = setTimeout(() => {
+        this.messagesEl.textContent = '';
+      }, 2500);
+    }
+
+    saveProgress() {
+      const saveData = {
+        coal: this.player.coal,
+        coalPerClick: this.player.coalPerClick,
+        coalPerSecond: this.player.coalPerSecond,
+        pickaxeLevel: this.player.pickaxeLevel,
+        pickaxeUpgradeCost: this.player.pickaxeUpgradeCost,
+        autoMineLevel: this.player.autoMineLevel,
+        autoMineUpgradeCost: this.player.autoMineUpgradeCost,
+      };
+      localStorage.setItem('deepMineSave', JSON.stringify(saveData));
+    }
+
+    loadProgress() {
+      const saved = localStorage.getItem('deepMineSave');
+      if(saved) {
+        try {
+          const data = JSON.parse(saved);
+          Object.assign(this.player, data);
+        } catch {
+          // Ошибка в сохранении — сбросить
+          localStorage.removeItem('deepMineSave');
+        }
+      }
+    }
+
+    autoMineTick(time) {
+      if(this.player.autoMineLevel > 0 && time - this.lastAutoMineTime > this.autoMineInterval) {
+        this.player.addCoal(this.player.coalPerSecond);
+        this.lastAutoMineTime = time;
+        this.updateUI();
+      }
+    }
+
+    drawBackground() {
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // Градиент фона шахты (синий к темно-синему)
+      let grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, '#0f1f30');
+      grad.addColorStop(1, '#050a12');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Камни шахты - размытые овалы
+      for(let i=0; i<40; i++) {
+        let x = (i * 40 + (this.sparkle * 30)) % w;
+        let y = 320 + 40 * Math.sin(i * 1.3 + this.sparkle);
+        let sizeX = 50 + 10 * Math.sin(i + this.sparkle);
+        let sizeY = 30 + 5 * Math.cos(i + this.sparkle);
+        ctx.fillStyle = `rgba(80,80,80,0.3)`;
+        ctx.beginPath();
+        ctx.ellipse(x, y, sizeX, sizeY, 0, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // Факелы по бокам
+      this.drawTorch(40, 100, 1, this.flamePhase);
+      this.drawTorch(w - 40, 100, 1, this.flamePhase + Math.PI);
+    }
+
+    drawTorch(x, y, scale, phase) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+      ctx.shadowColor = 'rgba(255, 140, 50, 0.9)';
       ctx.shadowBlur = 10;
-      ctx.fillRect(x, y, size, size);
 
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#222';
-      ctx.fillRect(x+5, y+5, size-10, size-10);
-    }
+      // Деревянная основа
+      ctx.fillStyle = '#4a2f0a';
+      ctx.fillRect(-6, 0, 12, 50);
 
-    // Дерево (бревна)
-    for(let i=0; i<4; i++) {
-      const w = 60;
-      const h = 20;
-      let x = 100 + i * 120 + 8 * Math.sin(i + sparkle * 0.3);
-      let y = 350 + 5 * Math.cos(i + sparkle * 0.6);
-      ctx.fillStyle = '#6a4320';
-      ctx.shadowColor = '#503314';
-      ctx.shadowBlur = 5;
-      ctx.fillRect(x, y, w, h);
-
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = '#855c38';
-      ctx.lineWidth = 2;
+      // Пламя
+      let flameHeight = 40 + 8 * Math.sin(phase * 8);
+      ctx.fillStyle = `rgba(255, 140, 50, ${0.6 + 0.4 * Math.sin(phase * 8)})`;
       ctx.beginPath();
-      ctx.ellipse(x + w/2, y + h/2, w/3, h/2.5, 0, 0, Math.PI * 2);
+      ctx.moveTo(0, -flameHeight);
+      ctx.bezierCurveTo(-12, -flameHeight / 2, -6, -flameHeight * 1.5, 0, -flameHeight);
+      ctx.bezierCurveTo(6, -flameHeight * 1.5, 12, -flameHeight / 2, 0, -flameHeight);
+      ctx.fill();
+
+      ctx.restore();
+      ctx.shadowBlur = 0;
+    }
+
+    drawCoal() {
+      let x = canvas.width / 2;
+      let y = 280;
+
+      ctx.save();
+      ctx.translate(x, y);
+
+      // Тень
+      ctx.fillStyle = 'rgba(10, 10, 10, 0.9)';
+      ctx.beginPath();
+      ctx.ellipse(40, 60, 50, 30, 0, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Основной уголь (черные камни с блеском)
+      ctx.fillStyle = `rgba(20, 20, 20, 1)`;
+      ctx.shadowColor = '#555';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.ellipse(40, 60, 50, 30, 0, 0, 2 * Math.PI);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = `#111`;
+      ctx.beginPath();
+      ctx.moveTo(10, 70);
+      ctx.lineTo(70, 70);
+      ctx.lineTo(60, 110);
+      ctx.lineTo(20, 110);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 2;
       ctx.stroke();
+
+      // Мерцающее пламя угля
+      let flameHeight = 40 + 10 * Math.sin(this.sparkle * 8);
+      ctx.fillStyle = `rgba(255, 140, 50, ${0.4 + 0.6 * Math.sin(this.sparkle * 8)})`;
+      ctx.beginPath();
+      ctx.moveTo(40, 10);
+      ctx.bezierCurveTo(20, 30, 30, -10, 40, 10);
+      ctx.bezierCurveTo(50, -10, 60, 30, 40, 10);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    drawPickaxe(x, y, scale = 1) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 6;
+
+      // Рукоять
+      ctx.fillStyle = '#553311';
+      ctx.fillRect(-10, 0, 20, 100);
+
+      // Лезвие кирки
+      ctx.fillStyle = '#aaa';
+      ctx.beginPath();
+      ctx.moveTo(-35, 20);
+      ctx.lineTo(-10, 40);
+      ctx.lineTo(10, 40);
+      ctx.lineTo(35, 10);
+      ctx.lineTo(20, -20);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+      ctx.shadowBlur = 0;
+    }
+
+    updateParticles() {
+      this.particles = this.particles.filter(p => p.alpha > 0.05);
+      for(let p of this.particles) p.update();
+    }
+
+    drawParticles() {
+      for(let p of this.particles) p.draw(ctx);
+    }
+
+    gameLoop(time = 0) {
+      this.sparkle += 0.03;
+      this.flamePhase += 0.1;
+
+      this.drawBackground();
+      this.drawPickaxe(100, 250, 1.5);
+      this.drawCoal();
+      this.updateParticles();
+      this.drawParticles();
+
+      this.autoMineTick(time);
+
+      requestAnimationFrame((t) => this.gameLoop(t));
     }
   }
 
-  // Кирка
-  function drawPickaxe(x, y, scale = 1) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(scale, scale);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#bbb';
-    ctx.fillStyle = '#666';
+  // Запуск игры
+  const game = new Game();
 
-    // Рукоять
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(20, 70);
-    ctx.stroke();
-
-    // Лезвие
-    ctx.beginPath();
-    ctx.moveTo(15, 20);
-    ctx.lineTo(35, 5);
-    ctx.lineTo(30, 15);
-    ctx.lineTo(40, 25);
-    ctx.lineTo(15, 40);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  // Ведро
-  function drawBucket(x, y, scale=1) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(scale, scale);
-    ctx.fillStyle = '#444';
-    ctx.strokeStyle = '#222';
-    ctx.lineWidth = 2;
-
-    // Ведро
-    ctx.beginPath();
-    ctx.moveTo(0,0);
-    ctx.lineTo(40,0);
-    ctx.lineTo(35,50);
-    ctx.lineTo(5,50);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // Ручка
-    ctx.beginPath();
-    ctx.moveTo(0,0);
-    ctx.quadraticCurveTo(20,-20,40,0);
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  // Факел с анимацией пламени
-  function drawTorch(x, y, scale=1, phase=0) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(scale, scale);
-
-    ctx.fillStyle = '#7a5230';
-    ctx.fillRect(-5, 0, 10, 60);
-
-    const flameHeight = 30 + 5 * Math.sin(phase);
-    const flameWidth = 15 + 3 * Math.cos(phase * 2);
-
-    let grad = ctx.createRadialGradient(0, 0, 5, 0, -flameHeight/2, flameWidth);
-    grad.addColorStop(0, 'rgba(255, 200, 50, 1)');
-    grad.addColorStop(0.5, 'rgba(255, 100, 0, 0.7)');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.ellipse(0, -flameHeight/2, flameWidth, flameHeight, 0, 0, 2 * Math.PI);
-    ctx.fill();
-
-    ctx.restore();
-  }
-
-  // Главный уголь с мерцанием и светом
-  function drawCoal() {
-    const coalX = canvas.width / 2 - 40;
-    const coalY = canvas.height / 2 - 60;
-
-    ctx.shadowColor = '#222';
-    ctx.shadowBlur = 20;
-    ctx.fillStyle = `rgba(17, 17, 17, ${0.8 + 0.2 * Math.sin(sparkle*5)})`;
-    ctx.beginPath();
-    ctx.ellipse(coalX + 40, coalY + 60, 50, 30, 0, 0, 2*Math.PI);
-    ctx.fill();
-
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = `rgba(10, 10, 10, 1)`;
-    ctx.beginPath();
-    ctx.ellipse(coalX + 40, coalY + 60, 48, 28, 0, 0, 2*Math.PI);
-    ctx.fill();
-
-    ctx.fillStyle = '#111';
-    ctx.beginPath();
-    ctx.moveTo(coalX + 10, coalY + 70);
-    ctx.lineTo(coalX + 70, coalY + 70);
-    ctx.lineTo(coalX + 60, coalY + 110);
-    ctx.lineTo(coalX + 20, coalY + 110);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.strokeStyle = '#222';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Пламя угля
-    let flameHeight = 40 + 10 * Math.sin(sparkle * 8);
-    ctx.fillStyle = `rgba(255, 140, 50, ${0.4 + 0.6 * Math.sin(sparkle * 8)})`;
-    ctx.beginPath();
-    ctx.moveTo(coalX + 40, coalY + 10);
-    ctx.bezierCurveTo(coalX + 20, coalY + 30, coalX + 30, coalY - 10, coalX + 40, coalY + 10);
-    ctx.bezierCurveTo(coalX + 50, coalY - 10, coalX + 60, coalY + 30, coalX + 40, coalY + 10);
-    ctx.fill();
-  }
-
-  // Клик по углю
-  canvas.addEventListener('click', e => {
-    // Добавляем уголь
-    coal += coalPerClick;
-    playClickSound();
-
-    // Добавляем частицы от клика
-    for(let i=0; i<10; i++) {
-      particles.push(createParticle(e.offsetX, e.offsetY));
-    }
-    updateUI();
-  });
-
-  // Автоматическая добыча
-  function autoMineTick(time) {
-    if(autoMineLevel > 0 && time - lastAutoMine > autoMineInterval) {
-      coal += coalPerSecond;
-      lastAutoMine = time;
-      updateUI();
-    }
-  }
-
-  // Основной игровой цикл
-  function gameLoop(time = 0) {
-    sparkle += 0.03;
-    flamePhase += 0.1;
-
-    // Фон
-    drawBackground();
-
-    // Кирка слева
-    drawPickaxe(100, 250, 1.6);
-
-    // Ведро справа
-    drawBucket(450, 280, 1.3);
-
-    // Факелы по краям
-    drawTorch(40, 100, 1, flamePhase);
-    drawTorch(canvas.width - 40, 100, 1, flamePhase + Math.PI);
-
-    // Главный уголь
-    drawCoal();
-
-    // Частицы угля
-    updateParticles();
-    drawParticles();
-
-    // Авто добыча
-    autoMineTick(time);
-
-    requestAnimationFrame(gameLoop);
-  }
-
-  updateUI();
-  gameLoop();
+  // Автосохранение раз в 5 секунд
+  setInterval(() => game.saveProgress(), 5000);
 })();
 </script>
 
