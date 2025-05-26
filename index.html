@@ -1704,4 +1704,372 @@
 })();
 </script>
 
-  
+  <style>
+  /* Общие стили из предыдущей части + добавим стили для магазина и настроек */
+  #shop, #settings {
+    background: #1f2937cc;
+    border-radius: 10px;
+    padding: 12px;
+    margin-top: 15px;
+    color: #d1d5db;
+    box-shadow: 0 0 10px #0284c7aa;
+  }
+  #shop h2, #settings h2 {
+    color: #0ea5e9;
+    margin-bottom: 8px;
+  }
+  .shop-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 8px 0;
+    padding: 8px;
+    background: #374151cc;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  .shop-item:hover:not(.disabled) {
+    background-color: #2563ebcc;
+  }
+  .shop-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .shop-item img {
+    width: 48px;
+    height: 48px;
+    margin-right: 12px;
+  }
+  #autoMinerStatus {
+    margin-top: 10px;
+    font-style: italic;
+    color: #60a5fa;
+  }
+  #settings label {
+    display: block;
+    margin-bottom: 8px;
+  }
+  input[type=range] {
+    width: 100%;
+  }
+</style>
+
+<div id="shop">
+  <h2>🏪 Магазин апгрейдов</h2>
+  <div id="shopItems"></div>
+  <div id="autoMinerStatus">Авто-майнер выключен</div>
+</div>
+
+<div id="settings">
+  <h2>⚙️ Настройки</h2>
+  <label>
+    Звук: 
+    <input type="checkbox" id="soundToggle" checked />
+  </label>
+  <label>
+    Громкость: 
+    <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="0.1" />
+  </label>
+</div>
+
+<script>
+(() => {
+  // Переменные и ресурсы из предыдущей части
+  let coal = 0, stones = 0;
+  let pickaxeLevel = 1;
+  let critChance = 0.1;
+  let critMultiplier = 2;
+
+  // Авто-майнер
+  let autoMiner = {
+    level: 0,
+    baseInterval: 3000, // скорость работы в мс (уменьшается с уровнем)
+    timer: null,
+    active: false,
+    coalPerTick: 1,
+    stonesChance: 0.15,
+  };
+
+  // Кирки (типы)
+  const pickaxeTypes = [
+    {
+      id: 'basic',
+      name: 'Простая кирка',
+      icon: 'https://i.imgur.com/YLbpPfW.png',
+      critBonus: 0,
+      coalBonus: 0,
+    },
+    {
+      id: 'steel',
+      name: 'Стальная кирка',
+      icon: 'https://i.imgur.com/8POfAtW.png',
+      critBonus: 0.05,
+      coalBonus: 1,
+      price: 100,
+      purchased: false,
+    },
+    {
+      id: 'diamond',
+      name: 'Алмазная кирка',
+      icon: 'https://i.imgur.com/3SrgBhE.png',
+      critBonus: 0.1,
+      coalBonus: 3,
+      price: 300,
+      purchased: false,
+    },
+  ];
+
+  let currentPickaxeIndex = 0;
+
+  // Звуки
+  const soundClick = new Audio('https://freesound.org/data/previews/82/82921_1022651-lq.mp3'); 
+  const soundUpgrade = new Audio('https://freesound.org/data/previews/235/235909_3986063-lq.mp3'); 
+  const soundCrit = new Audio('https://freesound.org/data/previews/235/235910_3986063-lq.mp3'); 
+  const soundBuy = new Audio('https://freesound.org/data/previews/341/341695_3248244-lq.mp3');
+  [soundClick, soundUpgrade, soundCrit, soundBuy].forEach(s => s.volume = 0.1);
+
+  let soundEnabled = true;
+  const volumeControl = document.getElementById('volumeControl');
+  const soundToggle = document.getElementById('soundToggle');
+
+  // Элементы
+  const coalCountEl = document.getElementById('coalCount');
+  const stoneCountEl = document.getElementById('stoneCount');
+  const pickaxeLevelEl = document.getElementById('pickaxeLevel');
+  const upgradePickaxeBtn = document.getElementById('upgradePickaxeBtn');
+  const pickaxeIcon = document.getElementById('pickaxeIcon');
+  const shopItemsEl = document.getElementById('shopItems');
+  const autoMinerStatusEl = document.getElementById('autoMinerStatus');
+
+  // Обновление ресурсов
+  function updateResources() {
+    coalCountEl.textContent = coal;
+    stoneCountEl.textContent = stones;
+    pickaxeLevelEl.textContent = pickaxeLevel;
+    upgradePickaxeBtn.textContent = `Улучшить Кирку (${10 * pickaxeLevel} угля)`;
+    upgradePickaxeBtn.disabled = coal < 10 * pickaxeLevel;
+
+    // Показываем доступность покупок
+    pickaxeTypes.forEach((pk, i) => {
+      if(pk.price) {
+        const el = document.querySelector(`[data-pickaxe-id="${pk.id}"]`);
+        if(el) {
+          if(coal >= pk.price && !pk.purchased) {
+            el.classList.remove('disabled');
+          } else {
+            el.classList.add('disabled');
+          }
+        }
+      }
+    });
+
+    // Авто-майнер кнопка
+    autoMinerStatusEl.textContent = autoMiner.active ? 
+      `Авто-майнер включен (уровень ${autoMiner.level})` : 'Авто-майнер выключен';
+  }
+
+  // Смена кирки (меняем иконку и бонусы)
+  function switchPickaxe(index) {
+    if(index < 0 || index >= pickaxeTypes.length) return;
+    if(pickaxeTypes[index].price && !pickaxeTypes[index].purchased) {
+      addLog(`Кирка ${pickaxeTypes[index].name} не куплена!`, 'error');
+      return;
+    }
+    currentPickaxeIndex = index;
+    const pk = pickaxeTypes[index];
+    pickaxeIcon.src = pk.icon;
+    critChance = 0.1 + (pk.critBonus || 0);
+    critMultiplier = 2 + (pk.coalBonus || 0);
+    addLog(`Вы переключились на кирку: ${pk.name}`, 'info');
+    updateResources();
+  }
+
+  // Создание элементов магазина
+  function buildShop() {
+    shopItemsEl.innerHTML = '';
+    pickaxeTypes.forEach((pk, i) => {
+      if(!pk.price) return; // пропускаем базовую кирку
+      const div = document.createElement('div');
+      div.classList.add('shop-item');
+      div.dataset.pickaxeId = pk.id;
+      if(pk.purchased) div.classList.add('disabled');
+      div.innerHTML = `
+        <img src="${pk.icon}" alt="${pk.name}" title="${pk.name}">
+        <div style="flex:1">
+          <strong>${pk.name}</strong><br>
+          Цена: ${pk.price} угля
+        </div>
+        <button ${pk.purchased ? 'disabled' : ''}>Купить</button>
+      `;
+      shopItemsEl.appendChild(div);
+
+      const btn = div.querySelector('button');
+      btn.onclick = () => {
+        if(coal >= pk.price && !pk.purchased) {
+          coal -= pk.price;
+          pk.purchased = true;
+          btn.disabled = true;
+          div.classList.add('disabled');
+          addLog(`Вы купили ${pk.name}`, 'success');
+          soundBuy.play();
+          updateResources();
+        } else {
+          addLog('Недостаточно угля для покупки', 'error');
+        }
+      };
+      div.onclick = e => {
+        if(e.target.tagName !== 'BUTTON' && pk.purchased) {
+          switchPickaxe(i);
+        }
+      };
+    });
+
+    // Кнопка авто-майнера в магазине
+    const autoMinerDiv = document.createElement('div');
+    autoMinerDiv.classList.add('shop-item');
+    autoMinerDiv.innerHTML = `
+      <img src="https://i.imgur.com/61XbJX3.png" alt="Авто-майнер" title="Авто-майнер" />
+      <div style="flex:1;">
+        <strong>Авто-майнер</strong><br>
+        Улучшение скорости и добычи угля
+      </div>
+      <button id="buyAutoMinerBtn">${autoMiner.level === 0 ? 'Купить (200 угля)' : 'Улучшить (' + (200 * (autoMiner.level+1)) + ' угля)'}</button>
+    `;
+    shopItemsEl.appendChild(autoMinerDiv);
+
+    const buyAutoMinerBtn = document.getElementById('buyAutoMinerBtn');
+    buyAutoMinerBtn.onclick = () => {
+      const cost = 200 * (autoMiner.level + 1);
+      if(coal >= cost) {
+        coal -= cost;
+        autoMiner.level++;
+        addLog(`Авто-майнер улучшен до уровня ${autoMiner.level}`, 'success');
+        soundBuy.play();
+        updateResources();
+        startAutoMiner();
+        buyAutoMinerBtn.textContent = `Улучшить (${200 * (autoMiner.level+1)} угля)`;
+      } else {
+        addLog('Недостаточно угля для улучшения авто-майнера', 'error');
+      }
+    };
+  }
+
+  // Запуск авто-майнера
+  function startAutoMiner() {
+    if(autoMiner.timer) clearInterval(autoMiner.timer);
+    if(autoMiner.level <= 0) {
+      autoMiner.active = false;
+      updateResources();
+      return;
+    }
+    autoMiner.active = true;
+    const interval = autoMiner.baseInterval / autoMiner.level;
+    autoMiner.timer = setInterval(() => {
+      // добыча угля авто
+      const coalAmount = autoMiner.level;
+      coal += coalAmount;
+      if(Math.random() < autoMiner.stonesChance) {
+        stones++;
+        addLog('Авто-майнер добыл камень', 'info');
+      }
+      addLog(`Авто-майнер добывает +${coalAmount} угля`, 'info');
+      updateResources();
+    }, interval);
+    updateResources();
+  }
+
+  // Инициализация и слушатели
+  function init() {
+    updateResources();
+    buildShop();
+    startAutoMiner();
+
+    upgradePickaxeBtn.onclick = () => {
+      const cost = 10 * pickaxeLevel;
+      if(coal >= cost) {
+        coal -= cost;
+        pickaxeLevel++;
+        critChance = Math.min(0.3, critChance + 0.02);
+        critMultiplier = Math.min(4, critMultiplier + 0.1);
+        addLog(`Кирка улучшена до уровня ${pickaxeLevel}`, 'success');
+        soundUpgrade.play();
+        updateResources();
+      } else {
+        addLog('Недостаточно угля для улучшения', 'error');
+      }
+    };
+
+    soundToggle.onchange = () => {
+      soundEnabled = soundToggle.checked;
+      [soundClick, soundUpgrade, soundCrit, soundBuy].forEach(s => {
+        s.muted = !soundEnabled;
+      });
+    };
+    volumeControl.oninput = () => {
+      const vol = parseFloat(volumeControl.value);
+      [soundClick, soundUpgrade, soundCrit, soundBuy].forEach(s => {
+        s.volume = vol;
+      });
+    };
+
+    // Кнопка клика из предыдущей части (уже была, добавим сюда функцию клика)
+    const clickerButton = document.getElementById('clickerButton');
+    clickerButton.onclick = () => {
+      let amount = pickaxeLevel + (pickaxeTypes[currentPickaxeIndex].coalBonus || 0);
+      const isCrit = Math.random() < critChance;
+      if(isCrit) {
+        amount = Math.floor(amount * critMultiplier);
+        addLog(`Критический удар! +${amount} угля`, 'success');
+        if(soundEnabled) soundCrit.play();
+      } else {
+        if(soundEnabled) soundClick.play();
+      }
+      coal += amount;
+      if(Math.random() < 0.2) {
+        stones++;
+        addLog('Вы добыли камень!', 'info');
+      }
+      updateResources();
+
+      // Анимация и искры (из первой части)
+      const pickaxeIcon = document.getElementById('pickaxeIcon');
+      pickaxeIcon.classList.remove('swing');
+      void pickaxeIcon.offsetWidth; // перезапуск анимации
+      pickaxeIcon.classList.add('swing');
+
+      // Искры
+      const gameContainer = document.getElementById('gameContainer');
+      for(let i=0; i<5; i++) {
+        const rect = clickerButton.getBoundingClientRect();
+        const x = Math.random() * rect.width;
+        const y = Math.random() * rect.height;
+        const spark = document.createElement('div');
+        spark.className = 'spark';
+        spark.style.left = `${rect.left + x}px`;
+        spark.style.top = `${rect.top + y}px`;
+        document.body.appendChild(spark);
+        setTimeout(() => spark.remove(), 400);
+      }
+    };
+
+    // Начальная кирка и ресурсы
+    switchPickaxe(0);
+  }
+
+  // Логи (блок из первой части)
+  function addLog(msg, type='info') {
+    const logs = document.getElementById('logs');
+    if(!logs) return;
+    const p = document.createElement('p');
+    p.textContent = msg;
+    if(type === 'error') p.style.color = 'red';
+    else if(type === 'success') p.style.color = 'lightgreen';
+    else if(type === 'info') p.style.color = '#a5b4fc';
+    logs.appendChild(p);
+    logs.scrollTop = logs.scrollHeight;
+  }
+
+  init();
+})();
+</script>
