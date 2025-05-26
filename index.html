@@ -1,297 +1,369 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Coal Mine Clicker - Улучшенный</title>
-<style>
-  /* --- Общие стили --- */
-  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap');
-
-  body, html {
-    margin: 0; padding: 0; overflow: hidden;
-    height: 100vh;
-    background: radial-gradient(circle at center, #0d1117 0%, #161b22 100%);
-    font-family: 'Montserrat', sans-serif;
-    color: #c9d1d9;
-    user-select: none;
-  }
-
-  #gameCanvas {
-    display: block;
-    background: linear-gradient(180deg, #22272e 0%, #0d1117 100%);
-  }
-
-  /* --- UI Блок --- */
-  #ui {
-    position: absolute;
-    top: 10px; left: 10px;
-    width: 300px;
-    background: rgba(12, 17, 23, 0.85);
-    border-radius: 14px;
-    box-shadow: 0 0 20px #0af, inset 0 0 30px #0af;
-    padding: 20px;
-    z-index: 100;
-  }
-
-  #ui h1 {
-    font-weight: 700;
-    font-size: 24px;
-    margin: 0 0 15px 0;
-    text-align: center;
-    color: #4ade80; /* ярко-зеленый */
-    text-shadow: 0 0 8px #4ade80;
-  }
-
-  #resources {
-    margin-bottom: 20px;
-  }
-
-  .res-line {
-    display: flex;
-    align-items: center;
-    margin-bottom: 10px;
-    font-size: 16px;
-  }
-
-  .res-line img {
-    width: 24px; height: 24px;
-    margin-right: 10px;
-    filter: drop-shadow(0 0 2px #0af);
-  }
-
-  .res-value {
-    flex-grow: 1;
-    text-align: right;
-    font-weight: 600;
-    color: #a5b4fc;
-  }
-
-  /* --- Кнопки --- */
-  button {
-    width: 100%;
-    margin-top: 10px;
-    padding: 12px;
-    font-weight: 700;
-    font-size: 16px;
-    border-radius: 10px;
-    border: none;
-    cursor: pointer;
-    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-    color: #e0e7ff;
-    box-shadow: 0 4px 10px #3b82f6aa;
-    transition: all 0.25s ease;
-    text-shadow: 0 0 5px #dbeafe;
-  }
-  button:hover {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    box-shadow: 0 6px 14px #60a5faee;
-    transform: scale(1.05);
-  }
-  button:active {
-    transform: scale(0.95);
-  }
-
-  /* --- Прогресс бары --- */
-  .progress-bar {
-    position: relative;
-    width: 100%;
-    height: 20px;
-    border-radius: 10px;
-    background: #161b22;
-    box-shadow: inset 0 0 6px #0af8;
-    margin-bottom: 15px;
-    overflow: hidden;
-  }
-  .progress-bar-inner {
-    height: 100%;
-    border-radius: 10px;
-    background: linear-gradient(90deg, #4ade80, #22c55e);
-    box-shadow: 0 0 8px #22c55ecc;
-    transition: width 0.3s ease;
-  }
-
-  /* --- Магазин --- */
-  #shop {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 350px;
-    max-height: 90vh;
-    background: rgba(17, 24, 39, 0.9);
-    border-radius: 14px;
-    box-shadow: 0 0 20px #10b981;
-    padding: 20px;
-    overflow-y: auto;
-    color: #a7f3d0;
-    display: none;
-    z-index: 101;
-  }
-  #shop h2 {
-    margin: 0 0 15px 0;
-    text-align: center;
-    font-weight: 700;
-    font-size: 22px;
-    color: #14b8a6;
-    text-shadow: 0 0 8px #14b8a6cc;
-  }
-  .shop-item {
-    background: #065f46;
-    padding: 15px;
-    margin-bottom: 12px;
-    border-radius: 12px;
-    box-shadow: 0 0 12px #059669cc;
-    cursor: pointer;
-    transition: background 0.25s ease;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .shop-item:hover {
-    background: #10b981;
-    color: #0f172a;
-    box-shadow: 0 0 20px #10b981ee;
-  }
-  .shop-item span {
-    font-weight: 600;
-  }
-
-  /* --- Таблица рекордов --- */
-  #leaderboard {
-    position: absolute;
-    bottom: 10px;
-    left: 10px;
-    width: 320px;
-    background: rgba(12, 17, 23, 0.85);
-    border-radius: 14px;
-    box-shadow: 0 0 20px #2563eb;
-    padding: 15px;
-    font-size: 14px;
-    color: #93c5fd;
-    user-select: none;
-  }
-  #leaderboard h3 {
-    margin: 0 0 10px 0;
-    color: #60a5fa;
-    font-weight: 700;
-    text-align: center;
-    text-shadow: 0 0 6px #60a5fa;
-  }
-  #leaderboard ol {
-    padding-left: 20px;
-    margin: 0;
-  }
-
-  /* --- Миссии --- */
-  #missions {
-    position: absolute;
-    bottom: 10px;
-    right: 10px;
-    width: 320px;
-    background: rgba(12, 17, 23, 0.85);
-    border-radius: 14px;
-    box-shadow: 0 0 20px #4ade80;
-    padding: 15px;
-    font-size: 14px;
-    color: #a7f3d0;
-    user-select: none;
-  }
-  #missions h3 {
-    margin: 0 0 10px 0;
-    color: #22c55e;
-    font-weight: 700;
-    text-align: center;
-    text-shadow: 0 0 6px #22c55e;
-  }
-  #missions ul {
-    margin: 0;
-    padding-left: 20px;
-  }
-  #missions li {
-    margin-bottom: 8px;
-  }
-  #missions li.completed {
-    text-decoration: line-through;
-    color: #6ee7b7;
-  }
-
-  /* --- Звуковые кнопки --- */
-  #sound-controls {
-    position: absolute;
-    top: 10px;
-    right: 380px;
-    z-index: 101;
-    display: flex;
-    gap: 10px;
-  }
-  #sound-controls button {
-    width: 40px; height: 40px;
-    padding: 0;
-    font-size: 20px;
-    border-radius: 50%;
-    box-shadow: 0 0 10px #2563eb;
-  }
-  #sound-controls button:hover {
-    box-shadow: 0 0 15px #60a5fa;
-  }
-
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Idle Miner Game — с графикой</title>
+  <style>
+    body {
+      margin: 0; background: #0f172a; color: #cbd5e1; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      user-select: none;
+      overflow-x: hidden;
+    }
+    #game {
+      max-width: 960px;
+      margin: 10px auto;
+      padding: 15px;
+      background: linear-gradient(145deg, #1e293b, #334155);
+      border-radius: 10px;
+      box-shadow: 0 0 15px #0ea5e9aa;
+    }
+    h1 {
+      text-align: center;
+      color: #38bdf8;
+      margin-bottom: 8px;
+    }
+    #resources {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 10px;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    .res-line {
+      display: flex;
+      align-items: center;
+      background: #334155;
+      border-radius: 8px;
+      padding: 6px 12px;
+      box-shadow: inset 0 0 8px #0ea5e9aa;
+      min-width: 150px;
+      font-weight: 600;
+      font-size: 1.1em;
+      gap: 8px;
+    }
+    .icon {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+    #xp-bar-container {
+      flex-grow: 1;
+      background: #475569;
+      border-radius: 6px;
+      height: 18px;
+      margin: 0 8px;
+      box-shadow: inset 0 0 8px #0ea5e9aa;
+      position: relative;
+      overflow: hidden;
+    }
+    #xp-bar {
+      background: linear-gradient(90deg, #22c55e, #0f9d58);
+      height: 100%;
+      width: 0%;
+      border-radius: 6px 0 0 6px;
+      transition: width 0.3s ease;
+      box-shadow: 0 0 6px #22c55eaa;
+    }
+    #xp-text {
+      font-size: 0.9em;
+      color: #a7f3d0;
+      width: 75px;
+      text-align: center;
+      font-weight: 600;
+      user-select: none;
+    }
+    button {
+      background: #0ea5e9;
+      border: none;
+      padding: 12px 20px;
+      margin: 6px 4px;
+      border-radius: 8px;
+      font-weight: 700;
+      color: #e0f2fe;
+      cursor: pointer;
+      box-shadow: 0 0 15px #0ea5e9aa;
+      transition: background-color 0.3s ease;
+      user-select: none;
+    }
+    button:hover:not(:disabled) {
+      background: #38bdf8;
+      box-shadow: 0 0 20px #38bdf8cc;
+    }
+    button:disabled {
+      background: #475569;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    #shop {
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 12px;
+      margin-top: 15px;
+      display: none;
+      box-shadow: 0 0 15px #0ea5e9aa;
+    }
+    .shop-item {
+      background: #334155;
+      margin: 8px 0;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: inset 0 0 10px #0ea5e9aa;
+      user-select: none;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background-color 0.3s ease;
+    }
+    .shop-item:hover:not(.bought):not(.disabled) {
+      background: #22c55eaa;
+      color: #071f0f;
+      box-shadow: 0 0 12px #22c55eaa;
+    }
+    .shop-item.bought {
+      background: #064e3b;
+      color: #6ee7b7;
+      cursor: default;
+      box-shadow: inset 0 0 12px #22c55eaa;
+    }
+    .shop-item.disabled {
+      background: #475569;
+      cursor: not-allowed;
+      color: #94a3b8;
+      box-shadow: none;
+    }
+    #missions, #leaderboard {
+      margin-top: 20px;
+      background: #334155;
+      border-radius: 12px;
+      padding: 12px 18px;
+      box-shadow: 0 0 10px #0ea5e9aa;
+    }
+    #missions h3, #leaderboard h3 {
+      color: #38bdf8;
+      margin-top: 0;
+    }
+    #missions-list li {
+      list-style: none;
+      padding: 6px 0;
+      font-weight: 600;
+      border-bottom: 1px solid #475569;
+      user-select: none;
+      transition: color 0.3s ease;
+    }
+    #missions-list li.completed {
+      color: #22c55e;
+      font-weight: 700;
+      text-decoration: line-through;
+    }
+    #leaderboard-list li {
+      list-style: decimal;
+      margin-left: 20px;
+      font-weight: 600;
+      user-select: none;
+      color: #a7f3d0;
+      padding: 4px 0;
+    }
+    #sound-controls {
+      margin-top: 15px;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+    #sound-controls button {
+      font-size: 1.5em;
+      padding: 6px 14px;
+      background: transparent;
+      box-shadow: none;
+      color: #38bdf8;
+      transition: color 0.3s ease;
+    }
+    #sound-controls button:hover {
+      color: #22c55e;
+    }
+    #gameCanvas {
+      display: block;
+      margin: 15px auto;
+      background: #0f172a;
+      border-radius: 12px;
+      box-shadow: 0 0 25px #0ea5e9aa;
+      max-width: 100%;
+    }
+  </style>
 </head>
 <body>
-
-<canvas id="gameCanvas"></canvas>
-
-<div id="ui">
-  <h1>Coal Mine Clicker</h1>
+<div id="game">
+  <h1>Idle Miner Game — с графикой</h1>
   <div id="resources">
-    <div class="res-line"><img src="https://cdn-icons-png.flaticon.com/512/3208/3208721.png" alt="Уголь"> Уголь: <span id="coal-count">0</span></div>
-    <div class="res-line"><img src="https://cdn-icons-png.flaticon.com/512/854/854878.png" alt="Кирка"> Кирка: <span id="pickaxe-level">1</span></div>
-    <div class="res-line">Уровень: <span id="player-level">1</span></div>
-    <div class="res-line">Опыт: 
-      <div class="progress-bar" style="flex-grow:1; margin-left:10px; margin-right:10px;">
-        <div id="xp-bar" class="progress-bar-inner" style="width:0%;"></div>
+    <div class="res-line">
+      <canvas class="icon" id="icon-coal" width="28" height="28"></canvas>
+      Уголь: <span id="coal-count">0</span>
+    </div>
+    <div class="res-line">
+      <canvas class="icon" id="icon-pickaxe" width="28" height="28"></canvas>
+      Кирка: <span id="pickaxe-level">1</span>
+    </div>
+    <div class="res-line">
+      Уровень: <span id="player-level">1</span>
+    </div>
+    <div class="res-line" style="flex-grow:1; min-width: 250px;">
+      Опыт:
+      <div id="xp-bar-container">
+        <div id="xp-bar"></div>
       </div>
       <span id="xp-text">0 / 100</span>
     </div>
-    <div class="res-line">Добыча за клик: <span id="click-power">1</span></div>
-    <div class="res-line">Автодобыча в сек: <span id="auto-mining">0</span></div>
   </div>
+
+  <div id="resources">
+    <div class="res-line">
+      Добыча за клик: <span id="click-power">1</span>
+    </div>
+    <div class="res-line">
+      Автодобыча в сек: <span id="auto-mining">0</span>
+    </div>
+  </div>
+
   <button id="btn-mine">Добыть уголь</button>
   <button id="btn-upgrade-pickaxe">Улучшить кирку (100 угля)</button>
   <button id="btn-toggle-shop">Магазин</button>
-</div>
 
-<div id="shop">
-  <h2>Магазин улучшений</h2>
-  <div id="shop-items"></div>
-  <button id="btn-close-shop">Закрыть магазин</button>
-</div>
+  <canvas id="gameCanvas" width="640" height="360"></canvas>
 
-<div id="leaderboard">
-  <h3>Таблица рекордов</h3>
-  <ol id="leaderboard-list">
-    <!-- Записи сюда -->
-  </ol>
-</div>
+  <div id="shop">
+    <h2>Магазин улучшений</h2>
+    <div id="shop-items"></div>
+    <button id="btn-close-shop">Закрыть магазин</button>
+  </div>
 
-<div id="missions">
-  <h3>Миссии</h3>
-  <ul id="missions-list"></ul>
-</div>
+  <div id="missions">
+    <h3>Миссии</h3>
+    <ul id="missions-list"></ul>
+  </div>
 
-<div id="sound-controls">
-  <button id="btn-sound-toggle" title="Вкл/Выкл звук">🔈</button>
-  <button id="btn-music-toggle" title="Вкл/Выкл музыку">🎵</button>
+  <div id="leaderboard">
+    <h3>Таблица рекордов</h3>
+    <ol id="leaderboard-list"></ol>
+  </div>
+
+  <div id="sound-controls">
+    <button id="btn-sound-toggle" title="Вкл/Выкл звук">🔈</button>
+    <button id="btn-music-toggle" title="Вкл/Выкл музыку">🎵</button>
+  </div>
 </div>
 
 <script>
 (() => {
-  // --- Переменные и состояние ---
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-  let W, H;
+  // --- Нарисовать иконку угля ---
+  function drawCoalIcon(ctx) {
+    ctx.clearRect(0, 0, 28, 28);
+    ctx.fillStyle = '#111111';
+    ctx.shadowColor = '#333333';
+    ctx.shadowBlur = 3;
+    ctx.beginPath();
+    ctx.moveTo(8, 4);
+    ctx.lineTo(20, 5);
+    ctx.lineTo(24, 12);
+    ctx.lineTo(19, 22);
+    ctx.lineTo(8, 24);
+    ctx.lineTo(5, 15);
+    ctx.closePath();
+    ctx.fill();
+    // Блики
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#555555';
+    ctx.beginPath();
+    ctx.moveTo(10, 7);
+    ctx.lineTo(14, 8);
+    ctx.lineTo(13, 12);
+    ctx.lineTo(9, 11);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // --- Нарисовать иконку кирки ---
+  function drawPickaxeIcon(ctx) {
+    ctx.clearRect(0, 0, 28, 28);
+    ctx.strokeStyle = '#d1d5db';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
 
-  // Ресурсы
+    // Ручка
+    ctx.beginPath();
+    ctx.moveTo(9, 21);
+    ctx.lineTo(19, 11);
+    ctx.stroke();
+
+    // Лезвия
+    ctx.beginPath();
+    ctx.moveTo(18, 9);
+    ctx.lineTo(22, 5);
+    ctx.lineTo(23, 7);
+    ctx.lineTo(19, 11);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(17, 13);
+    ctx.lineTo(21, 17);
+    ctx.stroke();
+  }
+  // --- Нарисовать иконку опыта (звёздочка) ---
+  function drawXPIcon(ctx) {
+    ctx.clearRect(0, 0, 28, 28);
+    ctx.fillStyle = '#22c55e';
+    ctx.shadowColor = '#22c55e';
+    ctx.shadowBlur = 4;
+
+    const cx = 14, cy = 14;
+    const spikes = 5;
+    const outerRadius = 12;
+    const innerRadius = 5;
+
+    ctx.beginPath();
+    for(let i = 0; i < spikes; i++) {
+      let rot = Math.PI / 2 * 3 + i * Math.PI / spikes;
+      let x = cx + Math.cos(rot) * outerRadius;
+      let y = cy + Math.sin(rot) * outerRadius;
+      ctx.lineTo(x, y);
+      rot += Math.PI / spikes;
+      x = cx + Math.cos(rot) * innerRadius;
+      y = cy + Math.sin(rot) * innerRadius;
+      ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Инициализация иконок
+  drawCoalIcon(document.getElementById('icon-coal').getContext('2d'));
+  drawPickaxeIcon(document.getElementById('icon-pickaxe').getContext('2d'));
+
+  // --- Игра ---
+  const coalCountEl = document.getElementById('coal-count');
+  const pickaxeLevelEl = document.getElementById('pickaxe-level');
+  const playerLevelEl = document.getElementById('player-level');
+  const xpBar = document.getElementById('xp-bar');
+  const xpText = document.getElementById('xp-text');
+  const clickPowerEl = document.getElementById('click-power');
+  const autoMiningEl = document.getElementById('auto-mining');
+
+  const btnMine = document.getElementById('btn-mine');
+  const btnUpgradePickaxe = document.getElementById('btn-upgrade-pickaxe');
+  const btnToggleShop = document.getElementById('btn-toggle-shop');
+  const shop = document.getElementById('shop');
+  const shopItemsContainer = document.getElementById('shop-items');
+  const btnCloseShop = document.getElementById('btn-close-shop');
+
+  const missionsList = document.getElementById('missions-list');
+  const leaderboardList = document.getElementById('leaderboard-list');
+
+  // Звук и музыка
+  let soundOn = true;
+  let musicOn = true;
+  const btnSoundToggle = document.getElementById('btn-sound-toggle');
+  const btnMusicToggle = document.getElementById('btn-music-toggle');
+
   let coal = 0;
   let pickaxeLevel = 1;
   let playerLevel = 1;
@@ -300,382 +372,210 @@
   let clickPower = 1;
   let autoMining = 0;
 
-  // Магазин
-  const shopItemsData = [
-    { id: 'autoMiner', name: 'Автоматическая добыча', cost: 500, effect: () => { autoMining += 1; }, description: 'Автоматически добывать 1 уголь в секунду' },
-    { id: 'xpBoost', name: 'Ускорение опыта', cost: 750, effect: () => { xpGainMultiplier *= 1.5; }, description: 'Увеличивает опыт за клик на 50%' },
-    { id: 'doubleClick', name: 'Удвоение добычи', cost: 1000, effect: () => { clickPower *= 2; }, description: 'Удваивает добычу угля за клик' },
-    { id: 'superPickaxe', name: 'Супер кирка', cost: 1500, effect: () => { pickaxeLevel += 5; updateClickPower(); }, description: 'Большое улучшение кирки (+5 уровней)' },
-  ];
-  let purchasedItems = new Set();
-
-  // Звуки
-  let soundOn = true;
-  let musicOn = true;
-  let audioCtx;
-  let sounds = {};
-  let musicSource;
-
-  // Миссии
+  // Миссии и улучшения
   const missions = [
-    { id: 'mine10', text: 'Добыть 10 угля', target: 10, progress: 0, completed: false, reward: 50 },
-    { id: 'mine100', text: 'Добыть 100 угля', target: 100, progress: 0, completed: false, reward: 200 },
-    { id: 'level5', text: 'Достичь 5 уровня', target: 5, progress: 0, completed: false, reward: 500 },
+    { id:1, text: 'Добыть 50 угля', target: 50, completed: false, rewardXP: 20 },
+    { id:2, text: 'Достичь уровня 3', target: 3, completed: false, rewardXP: 50 },
+    { id:3, text: 'Купить кирку 5 уровня', target: 5, completed: false, rewardXP: 80 },
   ];
 
-  // Таблица рекордов (простой массив)
-  let leaderboard = [];
+  const shopItems = [
+    { id: 'auto-miner', name: 'Автоматический шахтёр', cost: 500, bought: false, effect: () => { autoMining += 1; updateUI(); } },
+    { id: 'better-pickaxe', name: 'Улучшенная кирка', cost: 1000, bought: false, effect: () => { pickaxeLevel += 1; clickPower += 3; updateUI(); } },
+  ];
 
-  // Опытный множитель
-  let xpGainMultiplier = 1;
-
-  // --- Инициализация канваса ---
-  function resize() {
-    W = window.innerWidth;
-    H = window.innerHeight;
-    canvas.width = W;
-    canvas.height = H;
-  }
-  window.addEventListener('resize', resize);
-  resize();
-
-  // --- Звуки ---
-  function playSound(name, volume = 0.2) {
-    if (!soundOn) return;
-    const snd = sounds[name];
-    if (!snd) return;
-    const source = audioCtx.createBufferSource();
-    source.buffer = snd;
-    const gainNode = audioCtx.createGain();
-    gainNode.gain.value = volume;
-    source.connect(gainNode).connect(audioCtx.destination);
-    source.start(0);
-  }
-  function loadSound(url, name) {
-    fetch(url)
-      .then(r => r.arrayBuffer())
-      .then(buffer => audioCtx.decodeAudioData(buffer))
-      .then(decoded => {
-        sounds[name] = decoded;
-      });
-  }
-  function initAudio() {
-    try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      loadSound('https://freesound.org/data/previews/82/82669_1022651-lq.mp3', 'click');
-      loadSound('https://freesound.org/data/previews/331/331912_3248244-lq.mp3', 'levelup');
-    } catch {
-      console.warn('Web Audio API not supported');
-    }
-  }
-
-  // Фоновая музыка (loop)
-  function playMusic() {
-    if (!musicOn) return;
-    if (musicSource) musicSource.stop();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    oscillator.type = 'sine';
-    oscillator.frequency.value = 220;
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    gainNode.gain.value = 0.03;
-    oscillator.start();
-    musicSource = oscillator;
-  }
-  function stopMusic() {
-    if (musicSource) {
-      musicSource.stop();
-      musicSource = null;
-    }
-  }
-
-  // --- Обновление UI ---
   function updateUI() {
-    document.getElementById('coal-count').textContent = coal.toFixed(0);
-    document.getElementById('pickaxe-level').textContent = pickaxeLevel;
-    document.getElementById('player-level').textContent = playerLevel;
-    document.getElementById('click-power').textContent = clickPower;
-    document.getElementById('auto-mining').textContent = autoMining;
+    coalCountEl.textContent = coal;
+    pickaxeLevelEl.textContent = pickaxeLevel;
+    playerLevelEl.textContent = playerLevel;
+    clickPowerEl.textContent = clickPower;
+    autoMiningEl.textContent = autoMining;
 
-    const xpBar = document.getElementById('xp-bar');
-    const xpText = document.getElementById('xp-text');
-    let xpPercent = Math.min(100, (currentXP / xpToNextLevel) * 100);
+    const xpPercent = Math.min((currentXP / xpToNextLevel) * 100, 100);
     xpBar.style.width = xpPercent + '%';
     xpText.textContent = `${currentXP} / ${xpToNextLevel}`;
 
-    updateMissionsUI();
-    updateLeaderboardUI();
-  }
+    btnUpgradePickaxe.disabled = coal < 100;
 
-  // --- Обновление миссий ---
-  function updateMissionsUI() {
-    const ul = document.getElementById('missions-list');
-    ul.innerHTML = '';
-    missions.forEach(mission => {
-      const li = document.createElement('li');
-      li.textContent = mission.text + ` (${Math.min(mission.progress, mission.target)} / ${mission.target})`;
-      if (mission.completed) li.classList.add('completed');
-      ul.appendChild(li);
-    });
-  }
-
-  // --- Обновление таблицы рекордов ---
-  function updateLeaderboardUI() {
-    const ol = document.getElementById('leaderboard-list');
-    ol.innerHTML = '';
-    leaderboard.slice(0, 5).forEach(record => {
-      const li = document.createElement('li');
-      li.textContent = `${record.name}: ${record.score}`;
-      ol.appendChild(li);
-    });
-  }
-
-  // --- Обновление магазина ---
-  function updateShopUI() {
-    const container = document.getElementById('shop-items');
-    container.innerHTML = '';
-    shopItemsData.forEach(item => {
+    // Обновляем магазин
+    shopItemsContainer.innerHTML = '';
+    shopItems.forEach(item => {
       const div = document.createElement('div');
       div.className = 'shop-item';
-      div.title = item.description;
+      if(item.bought) div.classList.add('bought');
+      if(coal < item.cost && !item.bought) div.classList.add('disabled');
       div.textContent = `${item.name} — ${item.cost} угля`;
-      if (purchasedItems.has(item.id)) {
-        div.style.background = '#064e3b';
-        div.style.color = '#6ee7b7';
-        div.textContent += ' (куплено)';
-        div.style.cursor = 'default';
-      } else if (coal < item.cost) {
-        div.style.background = '#4b5563';
-        div.style.color = '#9ca3af';
-        div.style.cursor = 'not-allowed';
-      }
-      div.addEventListener('click', () => {
-        if (coal >= item.cost && !purchasedItems.has(item.id)) {
+      if(item.bought) div.textContent += ' (Куплено)';
+      div.onclick = () => {
+        if(item.bought) return;
+        if(coal >= item.cost) {
           coal -= item.cost;
-          purchasedItems.add(item.id);
+          item.bought = true;
           item.effect();
-          updateClickPower();
           updateUI();
-          updateShopUI();
-          playSound('click');
+          checkMissions();
         }
-      });
-      container.appendChild(div);
+      };
+      shopItemsContainer.appendChild(div);
+    });
+
+    // Миссии
+    missionsList.innerHTML = '';
+    missions.forEach(m => {
+      const li = document.createElement('li');
+      li.textContent = m.text;
+      if(m.completed) li.classList.add('completed');
+      missionsList.appendChild(li);
+    });
+
+    // Таблица рекордов — для примера просто топ-3 фиктивных игроков
+    leaderboardList.innerHTML = '';
+    const leaderboard = [
+      { name: 'Игрок1', coal: 1000 },
+      { name: 'Игрок2', coal: 700 },
+      { name: 'Игрок3', coal: 500 },
+    ];
+    leaderboard.forEach(p => {
+      const li = document.createElement('li');
+      li.textContent = `${p.name} — ${p.coal} угля`;
+      leaderboardList.appendChild(li);
     });
   }
 
-  // --- Логика прокачки кирки ---
-  function updateClickPower() {
-    clickPower = pickaxeLevel * 1;
-    // Если куплен doubleClick, clickPower уже умножен в эффекте
-  }
-
-  // --- Добавление опыта и уровня ---
-  function addXP(amount) {
-    currentXP += amount * xpGainMultiplier;
-    if (currentXP >= xpToNextLevel) {
+  function gainXP(amount) {
+    currentXP += amount;
+    while(currentXP >= xpToNextLevel) {
       currentXP -= xpToNextLevel;
       playerLevel++;
-      xpToNextLevel = Math.floor(xpToNextLevel * 1.4);
-      playSound('levelup', 0.4);
-      addClickPowerOnLevelUp();
-      checkMissions();
+      xpToNextLevel = Math.floor(xpToNextLevel * 1.5);
+      // При повышении уровня можно увеличить что-то
+      clickPower++;
     }
     updateUI();
   }
-  function addClickPowerOnLevelUp() {
-    pickaxeLevel++;
-    updateClickPower();
-  }
 
-  // --- Проверка миссий ---
   function checkMissions() {
     missions.forEach(m => {
-      if (!m.completed) {
-        if ((m.id.startsWith('mine') && coal >= m.target) ||
-            (m.id === 'level5' && playerLevel >= m.target)) {
-          m.completed = true;
-          coal += m.reward;
-          playSound('levelup', 0.6);
-          alert(`Миссия выполнена: "${m.text}". Вы получили ${m.reward} угля!`);
-          updateUI();
-        }
+      if(m.completed) return;
+      let progress = 0;
+      if(m.id === 1) progress = coal;
+      if(m.id === 2) progress = playerLevel;
+      if(m.id === 3) progress = pickaxeLevel;
+
+      if(progress >= m.target) {
+        m.completed = true;
+        gainXP(m.rewardXP);
       }
     });
   }
 
-  // --- Добавление добычи ---
-  function mine() {
+  btnMine.onclick = () => {
     coal += clickPower;
-    addXP(5);
+    gainXP(2);
     updateUI();
     checkMissions();
-    playSound('click');
-  }
+    playSound('mine');
+  };
 
-  // --- Автодобыча ---
-  function autoMineTick() {
-    coal += autoMining;
-    if (autoMining > 0) addXP(autoMining * 2);
-    updateUI();
-    checkMissions();
-  }
-
-  // --- События кнопок ---
-  document.getElementById('btn-mine').addEventListener('click', () => {
-    if (!audioCtx) initAudio();
-    mine();
-  });
-
-  document.getElementById('btn-upgrade-pickaxe').addEventListener('click', () => {
-    if (coal >= 100) {
+  btnUpgradePickaxe.onclick = () => {
+    if(coal >= 100) {
       coal -= 100;
       pickaxeLevel++;
-      updateClickPower();
+      clickPower += 2;
       updateUI();
-      playSound('click');
       checkMissions();
-    } else {
-      alert('Недостаточно угля для улучшения кирки!');
+      playSound('upgrade');
     }
-  });
+  };
 
-  document.getElementById('btn-toggle-shop').addEventListener('click', () => {
-    const shop = document.getElementById('shop');
-    if (shop.style.display === 'block') {
-      shop.style.display = 'none';
-    } else {
-      updateShopUI();
+  btnToggleShop.onclick = () => {
+    if(shop.style.display === 'none') {
       shop.style.display = 'block';
+      btnToggleShop.textContent = 'Закрыть магазин';
+    } else {
+      shop.style.display = 'none';
+      btnToggleShop.textContent = 'Магазин';
     }
-  });
+  };
+  btnCloseShop.onclick = () => {
+    shop.style.display = 'none';
+    btnToggleShop.textContent = 'Магазин';
+  };
 
-  document.getElementById('btn-close-shop').addEventListener('click', () => {
-    document.getElementById('shop').style.display = 'none';
-  });
+  // Автоматическая добыча
+  setInterval(() => {
+    if(autoMining > 0) {
+      coal += autoMining;
+      gainXP(1);
+      updateUI();
+      checkMissions();
+    }
+  }, 1000);
 
-  // --- Звуковые кнопки ---
-  document.getElementById('btn-sound-toggle').addEventListener('click', () => {
+  // Звук (простая заглушка)
+  function playSound(type) {
+    if(!soundOn) return;
+    // Можно добавить аудио здесь, сейчас просто console
+    console.log(`Sound: ${type}`);
+  }
+
+  btnSoundToggle.onclick = () => {
     soundOn = !soundOn;
-    document.getElementById('btn-sound-toggle').textContent = soundOn ? '🔈' : '🔇';
-  });
+    btnSoundToggle.textContent = soundOn ? '🔈' : '🔇';
+  };
 
-  document.getElementById('btn-music-toggle').addEventListener('click', () => {
+  btnMusicToggle.onclick = () => {
     musicOn = !musicOn;
-    document.getElementById('btn-music-toggle').textContent = musicOn ? '🎵' : '🔕';
-    if (musicOn) playMusic();
-    else stopMusic();
-  });
+    btnMusicToggle.textContent = musicOn ? '🎵' : '🔕';
+  };
 
-  // --- Рисуем красивый шахтёрский фон с анимацией ---
-  const stars = [];
-  for(let i=0; i<150; i++) {
-    stars.push({
-      x: Math.random()*W,
-      y: Math.random()*H,
-      r: Math.random()*1.5,
-      speed: Math.random()*0.2 + 0.02,
-      phase: Math.random()*Math.PI*2,
-    });
-  }
-
-  function drawBackground() {
-    ctx.clearRect(0, 0, W, H);
-
-    // Звёзды мерцают
-    stars.forEach(star => {
-      star.phase += star.speed;
-      const brightness = (Math.sin(star.phase) + 1)/2;
-      ctx.beginPath();
-      ctx.fillStyle = `rgba(80,180,255,${brightness.toFixed(2)})`;
-      ctx.shadowColor = `rgba(80,180,255,${brightness.toFixed(2)})`;
-      ctx.shadowBlur = 10;
-      ctx.arc(star.x, star.y, star.r, 0, Math.PI*2);
-      ctx.fill();
-    });
-
-    // Земля и шахта
-    let groundHeight = H * 0.2;
-    ctx.fillStyle = '#4b5563';
-    ctx.fillRect(0, H - groundHeight, W, groundHeight);
-
-    // Шахта (деревянные балки)
-    const shaftWidth = 250;
-    const shaftX = W/2 - shaftWidth/2;
-    ctx.fillStyle = '#3b3f45';
-    ctx.fillRect(shaftX, H - groundHeight, shaftWidth, groundHeight);
-
-    // Деревянные балки шахты
-    ctx.strokeStyle = '#7c6f59';
-    ctx.lineWidth = 12;
-    for (let i = 0; i < 6; i++) {
-      let y = H - groundHeight + i*(groundHeight/6);
-      ctx.beginPath();
-      ctx.moveTo(shaftX, y);
-      ctx.lineTo(shaftX + shaftWidth, y);
-      ctx.stroke();
-    }
-    ctx.lineWidth = 8;
-    for (let i = 1; i < 6; i++) {
-      let x = shaftX + i*(shaftWidth/6);
-      ctx.beginPath();
-      ctx.moveTo(x, H - groundHeight);
-      ctx.lineTo(x, H);
-      ctx.stroke();
-    }
-  }
-
-  // --- Анимация клика ---
-  let clickEffects = [];
-  function addClickEffect(x, y) {
-    clickEffects.push({x, y, alpha: 1, size: 30});
-  }
-  function drawClickEffects() {
-    for (let i = clickEffects.length - 1; i >= 0; i--) {
-      const e = clickEffects[i];
-      ctx.save();
-      ctx.globalAlpha = e.alpha;
-      ctx.fillStyle = '#22c55e';
-      ctx.shadowColor = '#22c55e';
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      e.alpha -= 0.03;
-      e.size += 0.8;
-      if (e.alpha <= 0) clickEffects.splice(i, 1);
-    }
-  }
-
-  // --- Отслеживание клика на канвасе ---
-  canvas.addEventListener('click', e => {
-    const rect = canvas.getBoundingClientRect();
-    addClickEffect(e.clientX - rect.left, e.clientY - rect.top);
-  });
-
-  // --- Основной игровой цикл ---
-  function gameLoop() {
-    drawBackground();
-    drawClickEffects();
-    requestAnimationFrame(gameLoop);
-  }
-
-  // --- Автодобыча ---
-  setInterval(autoMineTick, 1000);
-
-  // --- Инициализация ---
-  updateClickPower();
+  // Инициализация
   updateUI();
 
-  // Запускаем музыку и аудио
-  initAudio();
-  playMusic();
+  // --- Canvas анимация (например мерцающий уголь) ---
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  let sparkle = 0;
 
-  gameLoop();
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Фон шахты
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Нарисуем уголь (мерцающий)
+    const coalX = canvas.width / 2 - 30;
+    const coalY = canvas.height / 2 - 30;
+    ctx.fillStyle = `rgba(17, 17, 17, ${0.8 + 0.2 * Math.sin(sparkle)})`;
+    ctx.shadowColor = '#222';
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.moveTo(coalX + 8, coalY + 4);
+    ctx.lineTo(coalX + 20, coalY + 5);
+    ctx.lineTo(coalX + 24, coalY + 12);
+    ctx.lineTo(coalX + 19, coalY + 22);
+    ctx.lineTo(coalX + 8, coalY + 24);
+    ctx.lineTo(coalX + 5, coalY + 15);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#555';
+    ctx.beginPath();
+    ctx.moveTo(coalX + 10, coalY + 7);
+    ctx.lineTo(coalX + 14, coalY + 8);
+    ctx.lineTo(coalX + 13, coalY + 12);
+    ctx.lineTo(coalX + 9, coalY + 11);
+    ctx.closePath();
+    ctx.fill();
+
+    sparkle += 0.05;
+
+    requestAnimationFrame(draw);
+  }
+  draw();
 })();
 </script>
-
 </body>
 </html>
