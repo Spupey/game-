@@ -2,167 +2,186 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<title>Deep Mine Clicker — Полноценный кликер</title>
+<title>Ultimate Mine Clicker - Большая игра</title>
 <style>
-  /* Общий стиль */
+  /* Стили для всей игры */
+  @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
+
   body {
-    margin: 0;
-    background: #101820;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #eee;
+    margin: 0; background: linear-gradient(135deg, #0a1f2f, #061121);
+    font-family: 'Roboto Mono', monospace;
+    color: #ccddff;
     user-select: none;
-    overflow: hidden;
+    overflow-x: hidden;
   }
-  #gameCanvas {
-    display: block;
-    margin: 20px auto 0;
-    background: #15202b;
-    border-radius: 20px;
-    box-shadow: 0 0 30px #001522aa;
-  }
-  #uiPanel {
-    width: 720px;
+
+  #game-container {
+    max-width: 960px;
     margin: 20px auto;
-    background: rgba(10, 20, 35, 0.95);
+    background: #112233dd;
     border-radius: 20px;
-    box-shadow: 0 0 20px #224488cc;
+    box-shadow: 0 0 25px #335588aa;
     padding: 15px 20px;
+  }
+
+  #top-bar {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    margin-bottom: 15px;
   }
-  #stats, #upgrades {
-    display: flex;
-    gap: 25px;
-  }
-  #stats > div, #upgrades > button {
+
+  .stat {
     font-size: 18px;
-    font-weight: 700;
-  }
-  button {
-    background: #214270;
-    color: #aaccff;
-    border: none;
+    padding: 6px 12px;
+    background: #21364e88;
     border-radius: 12px;
-    padding: 12px 20px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background 0.3s ease;
-    box-shadow: 0 4px 10px #184060aa;
+    box-shadow: inset 0 0 8px #2a466a;
+    user-select: none;
+    min-width: 100px;
+    text-align: center;
   }
-  button:disabled {
-    background: #0a2a4a;
-    color: #557799;
+
+  #upgrade-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 10px;
+  }
+
+  button.upgrade-btn {
+    flex: 1 1 180px;
+    background: #335577cc;
+    border: none;
+    color: #aaddff;
+    font-weight: 700;
+    font-size: 16px;
+    border-radius: 14px;
+    padding: 10px;
+    cursor: pointer;
+    box-shadow: 0 0 12px #4477cc88;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.3s ease;
+    user-select: none;
+  }
+  button.upgrade-btn:disabled {
+    background: #22446655;
+    color: #557799aa;
     cursor: not-allowed;
     box-shadow: none;
   }
-  button:hover:not(:disabled) {
-    background: #2e5a98;
+  button.upgrade-btn:hover:not(:disabled) {
+    background: #5588ccdd;
   }
+
   #messages {
-    width: 720px;
-    margin: 0 auto;
-    height: 24px;
-    color: #88cc88;
-    font-weight: 600;
-    font-size: 16px;
+    margin: 12px 0 20px 0;
+    height: 22px;
+    font-weight: 700;
     text-align: center;
+    color: #99cc99;
+  }
+
+  canvas#game-canvas {
+    display: block;
+    margin: 0 auto;
+    background: linear-gradient(180deg, #0a1a28 0%, #050a15 100%);
+    border-radius: 18px;
+    box-shadow: 0 0 24px #225599cc;
+    max-width: 100%;
+  }
+
+  .icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  /* Подсказка */
+  #tooltip {
+    position: absolute;
+    background: #223344cc;
+    color: #ccddffcc;
+    padding: 8px 14px;
+    border-radius: 14px;
+    pointer-events: none;
+    font-size: 14px;
+    max-width: 320px;
+    display: none;
     user-select: none;
+    z-index: 10;
+    box-shadow: 0 0 12px #3366ccbb;
   }
 </style>
 </head>
 <body>
 
-<div id="uiPanel">
-  <div id="stats">
-    <div id="coalCount">Уголь: 0</div>
-    <div id="perClick">За клик: 1</div>
-    <div id="perSecond">Авто добыча: 0</div>
+<div id="game-container">
+
+  <div id="top-bar">
+    <div class="stat" id="coal-count" title="Количество добытого угля">Уголь: 0</div>
+    <div class="stat" id="per-click" title="Количество угля за один клик">Клик: 1</div>
+    <div class="stat" id="per-second" title="Автоматическая добыча угля в секунду">Авто: 0</div>
   </div>
-  <div id="upgrades">
-    <button id="upgradePickaxeBtn">Улучшить кирку (15)</button>
-    <button id="upgradeAutoMineBtn">Авто-добыча (30)</button>
+
+  <div id="upgrade-buttons">
+    <!-- Кнопки апгрейдов создаются JS -->
   </div>
+
+  <div id="messages"></div>
+
+  <canvas id="game-canvas" width="920" height="500"></canvas>
+
 </div>
-<div id="messages"></div>
-<canvas id="gameCanvas" width="720" height="450"></canvas>
+
+<div id="tooltip"></div>
 
 <script>
 (() => {
-  const canvas = document.getElementById('gameCanvas');
+  // ============== Подготовка контекста и переменных =================
+  const canvas = document.getElementById('game-canvas');
   const ctx = canvas.getContext('2d');
 
-  // Аудиоконтекст для звуков
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  const audioCtx = new AudioContext();
+  const coalCountEl = document.getElementById('coal-count');
+  const perClickEl = document.getElementById('per-click');
+  const perSecondEl = document.getElementById('per-second');
+  const upgradeButtonsContainer = document.getElementById('upgrade-buttons');
+  const messagesEl = document.getElementById('messages');
+  const tooltipEl = document.getElementById('tooltip');
 
-  // Функция звука клика (короткий "щелчок")
-  function playClickSound() {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(400 + Math.random()*300, audioCtx.currentTime);
-    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.1);
-  }
+  // Звуковой контекст
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const audioCtx = new AudioCtx();
 
-  // Класс Игрока (статистика, ресурсы)
-  class Player {
-    constructor() {
-      this.coal = 0;
-      this.coalPerClick = 1;
-      this.coalPerSecond = 0;
-      this.pickaxeLevel = 1;
-      this.pickaxeUpgradeCost = 15;
-      this.autoMineLevel = 0;
-      this.autoMineUpgradeCost = 30;
-    }
+  // ===================== Классы игры ==============================
 
-    addCoal(amount) {
-      this.coal += amount;
-    }
-
-    canBuy(cost) {
-      return this.coal >= cost;
-    }
-
-    buyPickaxeUpgrade() {
-      if(this.canBuy(this.pickaxeUpgradeCost)) {
-        this.coal -= this.pickaxeUpgradeCost;
-        this.pickaxeLevel++;
-        this.coalPerClick *= 1.5;
-        this.pickaxeUpgradeCost = Math.floor(this.pickaxeUpgradeCost * 2.5);
-        return true;
-      }
-      return false;
-    }
-
-    buyAutoMineUpgrade() {
-      if(this.canBuy(this.autoMineUpgradeCost)) {
-        this.coal -= this.autoMineUpgradeCost;
-        this.autoMineLevel++;
-        this.coalPerSecond += 1;
-        this.autoMineUpgradeCost = Math.floor(this.autoMineUpgradeCost * 3);
-        return true;
-      }
-      return false;
+  // Класс для генерации звуков
+  class Sound {
+    static playClick() {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440 + Math.random() * 220, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.07, audioCtx.currentTime);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.1);
     }
   }
 
-  // Класс Частицы для анимации (пыли, искр)
+  // Частица для эффекта клика
   class Particle {
-    constructor(x, y) {
+    constructor(x, y, color) {
       this.x = x;
       this.y = y;
-      this.size = 3 + Math.random()*4;
-      this.speedX = (Math.random()-0.5)*2;
-      this.speedY = -1 - Math.random()*2;
+      this.size = 4 + Math.random() * 3;
+      this.speedX = (Math.random() - 0.5) * 4;
+      this.speedY = -2 - Math.random() * 3;
       this.alpha = 1;
-      this.decay = 0.02 + Math.random()*0.02;
-      this.color = `rgba(200,200,200,${this.alpha})`;
+      this.color = color || 'rgba(255,255,255,1)';
+      this.decay = 0.02 + Math.random() * 0.02;
     }
     update() {
       this.x += this.speedX;
@@ -172,123 +191,232 @@
     }
     draw(ctx) {
       ctx.save();
-      ctx.fillStyle = `rgba(200,200,200,${this.alpha})`;
+      ctx.fillStyle = this.color.replace('1)', `${this.alpha})`);
       ctx.beginPath();
-      ctx.ellipse(this.x, this.y, this.size, this.size*0.6, 0, 0, Math.PI*2);
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
   }
 
-  // Основной класс игры
+  // Класс Кирки с разными типами
+  class Pickaxe {
+    constructor(name, baseClick, iconPath, description) {
+      this.name = name;
+      this.level = 1;
+      this.baseClick = baseClick;
+      this.clickPower = baseClick;
+      this.upgradeCost = 15;
+      this.iconPath = iconPath;
+      this.description = description;
+    }
+
+    upgrade(playerCoal) {
+      if (playerCoal >= this.upgradeCost) {
+        this.level++;
+        this.clickPower *= 1.5;
+        this.upgradeCost = Math.floor(this.upgradeCost * 2.5);
+        return true;
+      }
+      return false;
+    }
+
+    getClickPower() {
+      return Math.floor(this.clickPower);
+    }
+  }
+
+  // Класс Игрока (хранит состояние)
+  class Player {
+    constructor() {
+      this.coal = 0;
+      this.pickaxe = new Pickaxe(
+        "Стальная Кирка",
+        1,
+        'M10 2 L14 6 L10 10 L6 6 Z', // Просто пример иконки в SVG path (будем рисовать отдельно)
+        "Обычная кирка, базовая добыча"
+      );
+      this.autoMineLevel = 0;
+      this.autoMinePower = 0;
+      this.autoMineCost = 50;
+      this.autoMineIntervalMs = 1000;
+      this.upgrades = [];
+    }
+
+    addCoal(amount) {
+      this.coal += amount;
+    }
+
+    canAfford(cost) {
+      return this.coal >= cost;
+    }
+
+    spendCoal(amount) {
+      if(this.canAfford(amount)){
+        this.coal -= amount;
+        return true;
+      }
+      return false;
+    }
+
+    upgradePickaxe() {
+      if(this.spendCoal(this.pickaxe.upgradeCost)) {
+        this.pickaxe.upgrade(this.coal);
+        return true;
+      }
+      return false;
+    }
+
+    buyAutoMine() {
+      if(this.spendCoal(this.autoMineCost)) {
+        this.autoMineLevel++;
+        this.autoMinePower += 0.5 * this.autoMineLevel;
+        this.autoMineCost = Math.floor(this.autoMineCost * 1.9);
+        return true;
+      }
+      return false;
+    }
+  }
+
+  // ==================== Игра =======================
   class Game {
     constructor() {
       this.player = new Player();
       this.particles = [];
       this.lastAutoMineTime = 0;
-      this.autoMineInterval = 2000;
+      this.lastTime = 0;
       this.sparkle = 0;
-      this.flamePhase = 0;
 
-      // UI элементы
-      this.coalCountEl = document.getElementById('coalCount');
-      this.perClickEl = document.getElementById('perClick');
-      this.perSecondEl = document.getElementById('perSecond');
-      this.upgradePickaxeBtn = document.getElementById('upgradePickaxeBtn');
-      this.upgradeAutoMineBtn = document.getElementById('upgradeAutoMineBtn');
-      this.messagesEl = document.getElementById('messages');
+      // Иконки в SVG path для кнопок (просто базовые)
+      this.icons = {
+        pickaxe: 'M10 2 L14 6 L10 10 L6 6 Z', // кирка
+        autoMine: 'M5 10 L15 10 L10 20 Z', // лопатка или что-то
+        coal: 'M12 6 L16 14 L8 16 Z'
+      };
 
-      // Привязка событий
-      canvas.addEventListener('click', (e) => this.handleClick(e));
-      this.upgradePickaxeBtn.addEventListener('click', () => this.buyPickaxeUpgrade());
-      this.upgradeAutoMineBtn.addEventListener('click', () => this.buyAutoMineUpgrade());
-
-      this.loadProgress();
-      this.updateUI();
-      requestAnimationFrame((time) => this.gameLoop(time));
+      this.setupUI();
+      this.load();
+      this.startLoop();
     }
 
-    handleClick(e) {
-      this.player.addCoal(this.player.coalPerClick);
-      this.spawnParticles(e.offsetX, e.offsetY);
-      playClickSound();
+    setupUI() {
+      // Создаем кнопки апгрейда кирки и автодобычи
+      this.pickaxeBtn = document.createElement('button');
+      this.pickaxeBtn.className = 'upgrade-btn';
+      this.pickaxeBtn.title = 'Улучшить кирку — увеличивает уголь за клик';
+      this.pickaxeBtn.innerHTML = `<svg class="icon" viewBox="0 0 20 20"><path fill="#aaddff" d="${this.icons.pickaxe}"/></svg> Кирка: ${this.player.pickaxe.level} (Цена: ${this.player.pickaxe.upgradeCost})`;
+      this.pickaxeBtn.addEventListener('click', () => this.upgradePickaxe());
+      upgradeButtonsContainer.appendChild(this.pickaxeBtn);
+
+      this.autoMineBtn = document.createElement('button');
+      this.autoMineBtn.className = 'upgrade-btn';
+      this.autoMineBtn.title = 'Купить авто-добычу — автоматическое получение угля каждые секунду';
+      this.autoMineBtn.innerHTML = `<svg class="icon" viewBox="0 0 20 20"><path fill="#aaddff" d="${this.icons.autoMine}"/></svg> Авто-майнинг: ${this.player.autoMineLevel} (Цена: ${this.player.autoMineCost})`;
+      this.autoMineBtn.addEventListener('click', () => this.buyAutoMine());
+      upgradeButtonsContainer.appendChild(this.autoMineBtn);
+
+      // Клик по холсту
+      canvas.addEventListener('click', (e) => this.onCanvasClick(e));
+
       this.updateUI();
-      this.showMessage(`+${this.player.coalPerClick} угля`);
+    }
+
+    onCanvasClick(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const power = this.player.pickaxe.getClickPower();
+
+      this.player.addCoal(power);
+      this.spawnParticles(x, y);
+      Sound.playClick();
+      this.showMessage(`+${power} угля`);
+      this.updateUI();
     }
 
     spawnParticles(x, y) {
-      for(let i=0; i<8; i++) {
-        this.particles.push(new Particle(x, y));
+      for(let i = 0; i < 15; i++) {
+        this.particles.push(new Particle(x, y, `rgba(170, 220, 255, 1)`));
       }
     }
 
-    buyPickaxeUpgrade() {
-      if(this.player.buyPickaxeUpgrade()) {
-        this.updateUI();
-        this.showMessage(`Кирка улучшена до уровня ${this.player.pickaxeLevel}!`);
-        this.saveProgress();
+    upgradePickaxe() {
+      if(this.player.upgradePickaxe()) {
+        this.showMessage(`Кирка улучшена! Урон: ${this.player.pickaxe.getClickPower()}`);
       } else {
         this.showMessage(`Недостаточно угля для улучшения кирки!`);
       }
+      this.updateUI();
     }
 
-    buyAutoMineUpgrade() {
-      if(this.player.buyAutoMineUpgrade()) {
-        this.updateUI();
-        this.showMessage(`Авто-добыча улучшена до уровня ${this.player.autoMineLevel}!`);
-        this.saveProgress();
+    buyAutoMine() {
+      if(this.player.buyAutoMine()) {
+        this.showMessage(`Куплен уровень авто-майнинга: ${this.player.autoMineLevel}`);
       } else {
-        this.showMessage(`Недостаточно угля для авто-добычи!`);
+        this.showMessage(`Недостаточно угля для авто-майнинга!`);
       }
+      this.updateUI();
     }
 
     updateUI() {
-      this.coalCountEl.textContent = `Уголь: ${Math.floor(this.player.coal)}`;
-      this.perClickEl.textContent = `За клик: ${Math.floor(this.player.coalPerClick)}`;
-      this.perSecondEl.textContent = `Авто добыча: ${Math.floor(this.player.coalPerSecond)}`;
-      this.upgradePickaxeBtn.textContent = `Улучшить кирку (${this.player.pickaxeUpgradeCost})`;
-      this.upgradeAutoMineBtn.textContent = `Авто-добыча (${this.player.autoMineUpgradeCost})`;
-      this.upgradePickaxeBtn.disabled = !this.player.canBuy(this.player.pickaxeUpgradeCost);
-      this.upgradeAutoMineBtn.disabled = !this.player.canBuy(this.player.autoMineUpgradeCost);
+      coalCountEl.textContent = `Уголь: ${Math.floor(this.player.coal)}`;
+      perClickEl.textContent = `Клик: ${this.player.pickaxe.getClickPower()}`;
+      perSecondEl.textContent = `Авто: ${this.player.autoMinePower.toFixed(1)}`;
+
+      this.pickaxeBtn.innerHTML = `<svg class="icon" viewBox="0 0 20 20"><path fill="#aaddff" d="${this.icons.pickaxe}"/></svg> Кирка: ${this.player.pickaxe.level} (Цена: ${this.player.pickaxe.upgradeCost})`;
+      this.pickaxeBtn.disabled = !this.player.canAfford(this.player.pickaxe.upgradeCost);
+
+      this.autoMineBtn.innerHTML = `<svg class="icon" viewBox="0 0 20 20"><path fill="#aaddff" d="${this.icons.autoMine}"/></svg> Авто-майнинг: ${this.player.autoMineLevel} (Цена: ${this.player.autoMineCost})`;
+      this.autoMineBtn.disabled = !this.player.canAfford(this.player.autoMineCost);
     }
 
     showMessage(text) {
-      this.messagesEl.textContent = text;
-      clearTimeout(this.msgTimeout);
+      messagesEl.textContent = text;
+      if(this.msgTimeout) clearTimeout(this.msgTimeout);
       this.msgTimeout = setTimeout(() => {
-        this.messagesEl.textContent = '';
+        messagesEl.textContent = '';
       }, 2500);
     }
 
-    saveProgress() {
+    save() {
       const saveData = {
         coal: this.player.coal,
-        coalPerClick: this.player.coalPerClick,
-        coalPerSecond: this.player.coalPerSecond,
-        pickaxeLevel: this.player.pickaxeLevel,
-        pickaxeUpgradeCost: this.player.pickaxeUpgradeCost,
+        pickaxe: {
+          level: this.player.pickaxe.level,
+          clickPower: this.player.pickaxe.clickPower,
+          upgradeCost: this.player.pickaxe.upgradeCost
+        },
         autoMineLevel: this.player.autoMineLevel,
-        autoMineUpgradeCost: this.player.autoMineUpgradeCost,
+        autoMinePower: this.player.autoMinePower,
+        autoMineCost: this.player.autoMineCost
       };
-      localStorage.setItem('deepMineSave', JSON.stringify(saveData));
+      localStorage.setItem('ultimateMineSave', JSON.stringify(saveData));
     }
 
-    loadProgress() {
-      const saved = localStorage.getItem('deepMineSave');
+    load() {
+      const saved = localStorage.getItem('ultimateMineSave');
       if(saved) {
         try {
           const data = JSON.parse(saved);
-          Object.assign(this.player, data);
+          this.player.coal = data.coal || 0;
+          if(data.pickaxe) {
+            this.player.pickaxe.level = data.pickaxe.level || 1;
+            this.player.pickaxe.clickPower = data.pickaxe.clickPower || 1;
+            this.player.pickaxe.upgradeCost = data.pickaxe.upgradeCost || 15;
+          }
+          this.player.autoMineLevel = data.autoMineLevel || 0;
+          this.player.autoMinePower = data.autoMinePower || 0;
+          this.player.autoMineCost = data.autoMineCost || 50;
         } catch {
-          // Ошибка в сохранении — сбросить
-          localStorage.removeItem('deepMineSave');
+          localStorage.removeItem('ultimateMineSave');
         }
       }
     }
 
     autoMineTick(time) {
-      if(this.player.autoMineLevel > 0 && time - this.lastAutoMineTime > this.autoMineInterval) {
-        this.player.addCoal(this.player.coalPerSecond);
+      if(!this.lastAutoMineTime) this.lastAutoMineTime = time;
+      if(time - this.lastAutoMineTime >= this.player.autoMineIntervalMs) {
+        this.player.addCoal(this.player.autoMinePower);
         this.lastAutoMineTime = time;
         this.updateUI();
       }
@@ -297,158 +425,117 @@
     drawBackground() {
       const w = canvas.width;
       const h = canvas.height;
-
-      // Градиент фона шахты (синий к темно-синему)
+      // Темный градиент
       let grad = ctx.createLinearGradient(0, 0, 0, h);
-      grad.addColorStop(0, '#0f1f30');
-      grad.addColorStop(1, '#050a12');
+      grad.addColorStop(0, '#092635');
+      grad.addColorStop(1, '#01151f');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, w, h);
 
-      // Камни шахты - размытые овалы
-      for(let i=0; i<40; i++) {
-        let x = (i * 40 + (this.sparkle * 30)) % w;
-        let y = 320 + 40 * Math.sin(i * 1.3 + this.sparkle);
-        let sizeX = 50 + 10 * Math.sin(i + this.sparkle);
-        let sizeY = 30 + 5 * Math.cos(i + this.sparkle);
-        ctx.fillStyle = `rgba(80,80,80,0.3)`;
+      // Стилизация нижнего слоя камней
+      for(let i=0; i<50; i++) {
+        const x = (i * 40 + this.sparkle * 20) % w;
+        const y = 450 + 20 * Math.sin(i + this.sparkle);
+        ctx.fillStyle = `rgba(40,40,50, 0.25)`;
         ctx.beginPath();
-        ctx.ellipse(x, y, sizeX, sizeY, 0, 0, Math.PI*2);
+        ctx.ellipse(x, y, 40, 18, 0, 0, Math.PI * 2);
         ctx.fill();
       }
-
-      // Факелы по бокам
-      this.drawTorch(40, 100, 1, this.flamePhase);
-      this.drawTorch(w - 40, 100, 1, this.flamePhase + Math.PI);
     }
 
-    drawTorch(x, y, scale, phase) {
+    drawPickaxe(x, y, level) {
       ctx.save();
       ctx.translate(x, y);
-      ctx.scale(scale, scale);
-      ctx.shadowColor = 'rgba(255, 140, 50, 0.9)';
-      ctx.shadowBlur = 10;
+      ctx.scale(1 + 0.1 * (level - 1), 1 + 0.1 * (level - 1));
 
-      // Деревянная основа
-      ctx.fillStyle = '#4a2f0a';
-      ctx.fillRect(-6, 0, 12, 50);
-
-      // Пламя
-      let flameHeight = 40 + 8 * Math.sin(phase * 8);
-      ctx.fillStyle = `rgba(255, 140, 50, ${0.6 + 0.4 * Math.sin(phase * 8)})`;
+      // Простой вид кирки (большой треугольник + рукоять)
+      ctx.fillStyle = '#88ccff';
       ctx.beginPath();
-      ctx.moveTo(0, -flameHeight);
-      ctx.bezierCurveTo(-12, -flameHeight / 2, -6, -flameHeight * 1.5, 0, -flameHeight);
-      ctx.bezierCurveTo(6, -flameHeight * 1.5, 12, -flameHeight / 2, 0, -flameHeight);
-      ctx.fill();
-
-      ctx.restore();
-      ctx.shadowBlur = 0;
-    }
-
-    drawCoal() {
-      let x = canvas.width / 2;
-      let y = 280;
-
-      ctx.save();
-      ctx.translate(x, y);
-
-      // Тень
-      ctx.fillStyle = 'rgba(10, 10, 10, 0.9)';
-      ctx.beginPath();
-      ctx.ellipse(40, 60, 50, 30, 0, 0, 2 * Math.PI);
-      ctx.fill();
-
-      // Основной уголь (черные камни с блеском)
-      ctx.fillStyle = `rgba(20, 20, 20, 1)`;
-      ctx.shadowColor = '#555';
-      ctx.shadowBlur = 12;
-      ctx.beginPath();
-      ctx.ellipse(40, 60, 50, 30, 0, 0, 2 * Math.PI);
-      ctx.fill();
-
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = `#111`;
-      ctx.beginPath();
-      ctx.moveTo(10, 70);
-      ctx.lineTo(70, 70);
-      ctx.lineTo(60, 110);
-      ctx.lineTo(20, 110);
+      ctx.moveTo(0, -20);
+      ctx.lineTo(20, 0);
+      ctx.lineTo(0, 20);
       ctx.closePath();
       ctx.fill();
 
-      ctx.strokeStyle = '#222';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#3366aa';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, 20);
+      ctx.lineTo(0, 50);
       ctx.stroke();
 
-      // Мерцающее пламя угля
-      let flameHeight = 40 + 10 * Math.sin(this.sparkle * 8);
-      ctx.fillStyle = `rgba(255, 140, 50, ${0.4 + 0.6 * Math.sin(this.sparkle * 8)})`;
-      ctx.beginPath();
-      ctx.moveTo(40, 10);
-      ctx.bezierCurveTo(20, 30, 30, -10, 40, 10);
-      ctx.bezierCurveTo(50, -10, 60, 30, 40, 10);
-      ctx.fill();
-
       ctx.restore();
     }
 
-    drawPickaxe(x, y, scale = 1) {
+    drawUI() {
       ctx.save();
-      ctx.translate(x, y);
-      ctx.scale(scale, scale);
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = 6;
+      ctx.font = '20px Roboto Mono';
+      ctx.fillStyle = '#aaddffcc';
+      ctx.textAlign = 'left';
+      ctx.fillText(`Уголь: ${Math.floor(this.player.coal)}`, 20, 30);
+      ctx.fillText(`Клик: ${this.player.pickaxe.getClickPower()}`, 20, 60);
+      ctx.fillText(`Авто: ${this.player.autoMinePower.toFixed(1)}`, 20, 90);
 
-      // Рукоять
-      ctx.fillStyle = '#553311';
-      ctx.fillRect(-10, 0, 20, 100);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#99bbffdd';
+      ctx.font = '28px Roboto Mono';
+      ctx.fillText('Нажми по холсту, чтобы добывать уголь!', canvas.width/2, 40);
 
-      // Лезвие кирки
-      ctx.fillStyle = '#aaa';
-      ctx.beginPath();
-      ctx.moveTo(-35, 20);
-      ctx.lineTo(-10, 40);
-      ctx.lineTo(10, 40);
-      ctx.lineTo(35, 10);
-      ctx.lineTo(20, -20);
-      ctx.closePath();
-      ctx.fill();
+      // Показываем кирку
+      this.drawPickaxe(canvas.width/2, canvas.height/2 + 50, this.player.pickaxe.level);
 
       ctx.restore();
-      ctx.shadowBlur = 0;
     }
 
     updateParticles() {
-      this.particles = this.particles.filter(p => p.alpha > 0.05);
-      for(let p of this.particles) p.update();
+      for(let i = this.particles.length -1; i >= 0; i--) {
+        const p = this.particles[i];
+        p.update();
+        if(p.alpha <= 0 || p.size <= 0.1) {
+          this.particles.splice(i,1);
+        }
+      }
     }
 
     drawParticles() {
-      for(let p of this.particles) p.draw(ctx);
+      this.particles.forEach(p => p.draw(ctx));
     }
 
-    gameLoop(time = 0) {
-      this.sparkle += 0.03;
-      this.flamePhase += 0.1;
+    loop(time = 0) {
+      // Обновление времени
+      if(!this.lastTime) this.lastTime = time;
+      const delta = time - this.lastTime;
+      this.lastTime = time;
 
-      this.drawBackground();
-      this.drawPickaxe(100, 250, 1.5);
-      this.drawCoal();
-      this.updateParticles();
-      this.drawParticles();
-
+      // Обновления
       this.autoMineTick(time);
+      this.updateParticles();
+      this.sparkle += 0.01;
 
-      requestAnimationFrame((t) => this.gameLoop(t));
+      // Отрисовка
+      this.drawBackground();
+      this.drawParticles();
+      this.drawUI();
+
+      requestAnimationFrame(this.loop.bind(this));
+    }
+
+    startLoop() {
+      requestAnimationFrame(this.loop.bind(this));
     }
   }
 
-  // Запуск игры
+  // ==================== Запуск игры =============================
   const game = new Game();
 
-  // Автосохранение раз в 5 секунд
-  setInterval(() => game.saveProgress(), 5000);
+  // Автосохранение
+  setInterval(() => {
+    game.save();
+  }, 5000);
+
+  // Сохранять при закрытии страницы
+  window.addEventListener('beforeunload', () => game.save());
+
 })();
 </script>
 
