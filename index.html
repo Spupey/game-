@@ -2,48 +2,80 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<title>Игра Шахта — расширенный фон</title>
+<title>Шахтерский кликер — Полноценная игра</title>
 <style>
   body {
     margin: 0;
-    background: #0f1626;
-    color: #ddd;
+    background: #0e1628;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    overflow: hidden;
+    color: #ddd;
     user-select: none;
+    overflow: hidden;
   }
   #gameCanvas {
     display: block;
-    margin: auto;
+    margin: 20px auto 0;
     background: #1b223b;
+    border-radius: 15px;
     box-shadow: 0 0 20px #000a;
+  }
+  #uiPanel {
+    width: 600px;
+    margin: 15px auto;
+    background: rgba(15, 20, 30, 0.9);
     border-radius: 12px;
-    position: relative;
-    top: 20px;
-  }
-  #infoPanel {
-    position: absolute;
-    top: 20px; left: 50%;
-    transform: translateX(-50%);
-    width: 320px;
-    padding: 12px;
-    background: rgba(20, 30, 60, 0.85);
-    border-radius: 8px;
     box-shadow: 0 0 15px #4466ccaa;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
-  #infoPanel h2 {
-    margin: 0 0 8px 0;
+  #coalCount {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  button {
+    background: #2a334f;
+    color: #aabbcc;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  button:disabled {
+    background: #1a2131;
+    color: #666;
+    cursor: not-allowed;
+  }
+  button:hover:not(:disabled) {
+    background: #42527a;
+  }
+  #upgradePanel {
+    display: flex;
+    gap: 15px;
+  }
+  #messages {
     text-align: center;
+    margin-top: 5px;
+    min-height: 18px;
+    font-size: 14px;
+    color: #88cc88;
+    font-weight: 600;
   }
 </style>
 </head>
 <body>
 
-<div id="infoPanel">
-  <h2>Шахта — уголь и инструменты</h2>
-  <p>Нажмите по углю, чтобы добыть.</p>
+<div id="uiPanel">
+  <div id="coalCount">Уголь: 0</div>
+  <div id="upgradePanel">
+    <button id="upgradePickaxe">Улучшить кирку (x1.5)</button>
+    <button id="upgradeAutoMine">Автоматическая добыча (0.5 сек)</button>
+  </div>
 </div>
-
+<div id="messages"></div>
 <canvas id="gameCanvas" width="600" height="400"></canvas>
 
 <script>
@@ -51,25 +83,188 @@
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
 
-  // --- Параметры и состояние ---
-  let sparkle = 0;
-  let fireFlamePhase = 0;
+  // Звуки
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  function playClickSound() {
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    osc.type = 'triangle';
+    osc.frequency.value = 400 + Math.random()*200;
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+    osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1);
+  }
+
+  // --- Игра ---
+  let coal = 0;
+  let coalPerClick = 1;
+  let coalPerSecond = 0;
+  let autoMineInterval = 2000; // мс
+  let lastAutoMine = 0;
+
+  // Кирки с уровнями
+  let pickaxeLevel = 1;
+  let pickaxeUpgradeCost = 15;
+
+  // Авто-добыча
+  let autoMineLevel = 0;
+  let autoMineUpgradeCost = 30;
+
+  // Частицы клика
   const particles = [];
 
-  // Создаем частицы для эффекта падающего угля/искорок
-  function createParticle() {
+  // Создание частицы
+  function createParticle(x, y) {
     return {
-      x: Math.random() * canvas.width,
-      y: -10,
-      size: 1 + Math.random() * 2,
-      speedY: 0.7 + Math.random(),
+      x, y,
+      size: 4 + Math.random() * 4,
+      speedX: (Math.random() - 0.5) * 3,
+      speedY: -2 - Math.random() * 2,
       alpha: 1,
-      decay: 0.005 + Math.random() * 0.007,
-      color: 'rgba(100, 100, 110, 0.8)'
+      decay: 0.02 + Math.random() * 0.02,
+      color: `hsl(0,0%,${20 + Math.random()*40}%)`
     };
   }
 
-  // Иконки - небольшие svg-подобные рисунки на canvas
+  // UI элементы
+  const coalCountEl = document.getElementById('coalCount');
+  const upgradePickaxeBtn = document.getElementById('upgradePickaxe');
+  const upgradeAutoMineBtn = document.getElementById('upgradeAutoMine');
+  const messagesEl = document.getElementById('messages');
+
+  function showMessage(text) {
+    messagesEl.textContent = text;
+    setTimeout(() => {
+      if(messagesEl.textContent === text) messagesEl.textContent = '';
+    }, 2000);
+  }
+
+  // Обновление UI
+  function updateUI() {
+    coalCountEl.textContent = `Уголь: ${Math.floor(coal)}`;
+    upgradePickaxeBtn.textContent = `Улучшить кирку (x1.5) - ${pickaxeUpgradeCost} угля`;
+    upgradeAutoMineBtn.textContent = `Авто-добыча (0.5 сек) - ${autoMineUpgradeCost} угля`;
+    upgradePickaxeBtn.disabled = coal < pickaxeUpgradeCost;
+    upgradeAutoMineBtn.disabled = coal < autoMineUpgradeCost;
+  }
+
+  // Улучшить кирку
+  upgradePickaxeBtn.onclick = () => {
+    if(coal >= pickaxeUpgradeCost) {
+      coal -= pickaxeUpgradeCost;
+      pickaxeLevel++;
+      coalPerClick *= 1.5;
+      pickaxeUpgradeCost = Math.floor(pickaxeUpgradeCost * 2.5);
+      updateUI();
+      showMessage('Кирка улучшена! Выдача угля увеличена.');
+    }
+  };
+
+  // Улучшить авто-добычу
+  upgradeAutoMineBtn.onclick = () => {
+    if(coal >= autoMineUpgradeCost) {
+      coal -= autoMineUpgradeCost;
+      autoMineLevel++;
+      coalPerSecond += 1;
+      autoMineUpgradeCost = Math.floor(autoMineUpgradeCost * 3);
+      autoMineInterval = Math.max(500, autoMineInterval - 200); // сокращаем интервал
+      updateUI();
+      showMessage('Автоматическая добыча улучшена!');
+    }
+  };
+
+  // Анимация искр и частиц
+  function updateParticles() {
+    for(let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.speedX;
+      p.y += p.speedY;
+      p.alpha -= p.decay;
+      p.size *= 0.95;
+      if(p.alpha <= 0 || p.size <= 0) {
+        particles.splice(i, 1);
+      }
+    }
+  }
+  function drawParticles() {
+    particles.forEach(p => {
+      ctx.fillStyle = `rgba(50,50,50,${p.alpha})`;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, p.size, p.size*0.6, 0, 0, 2*Math.PI);
+      ctx.fill();
+    });
+  }
+
+  // Фон и анимация
+  let sparkle = 0;
+  let flamePhase = 0;
+
+  function drawBackground() {
+    // Градиент фона - шахта
+    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    grad.addColorStop(0, '#1a2237');
+    grad.addColorStop(0.7, '#0d121f');
+    grad.addColorStop(1, '#070a13');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Камни
+    for(let i=0; i<8; i++) {
+      const size = 30;
+      let x = i * 70 + 20 + 10 * Math.sin(i + sparkle);
+      let y = 320 + 10 * Math.cos(i + sparkle * 0.5);
+      ctx.fillStyle = '#5a5a6a';
+      ctx.fillRect(x, y, size, size);
+
+      ctx.strokeStyle = '#4a4a5a';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x+5,y+5);
+      ctx.lineTo(x+size-5,y+size-5);
+      ctx.moveTo(x+size-5,y+5);
+      ctx.lineTo(x+5,y+size-5);
+      ctx.stroke();
+    }
+
+    // Уголь блоки
+    for(let i=0; i<6; i++) {
+      const size = 20;
+      let x = 60 + i * 90 + 12 * Math.cos(i + sparkle * 0.7);
+      let y = 280 + 7 * Math.sin(i * 2 + sparkle);
+      ctx.fillStyle = '#111111';
+      ctx.shadowColor = '#333';
+      ctx.shadowBlur = 10;
+      ctx.fillRect(x, y, size, size);
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#222';
+      ctx.fillRect(x+5, y+5, size-10, size-10);
+    }
+
+    // Дерево (бревна)
+    for(let i=0; i<4; i++) {
+      const w = 60;
+      const h = 20;
+      let x = 100 + i * 120 + 8 * Math.sin(i + sparkle * 0.3);
+      let y = 350 + 5 * Math.cos(i + sparkle * 0.6);
+      ctx.fillStyle = '#6a4320';
+      ctx.shadowColor = '#503314';
+      ctx.shadowBlur = 5;
+      ctx.fillRect(x, y, w, h);
+
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#855c38';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x + w/2, y + h/2, w/3, h/2.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  // Кирка
   function drawPickaxe(x, y, scale = 1) {
     ctx.save();
     ctx.translate(x, y);
@@ -98,6 +293,7 @@
     ctx.restore();
   }
 
+  // Ведро
   function drawBucket(x, y, scale=1) {
     ctx.save();
     ctx.translate(x, y);
@@ -125,18 +321,17 @@
     ctx.restore();
   }
 
-  function drawTorch(x, y, scale=1, flamePhase=0) {
+  // Факел с анимацией пламени
+  function drawTorch(x, y, scale=1, phase=0) {
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(scale, scale);
 
-    // Деревянная часть
     ctx.fillStyle = '#7a5230';
     ctx.fillRect(-5, 0, 10, 60);
 
-    // Огнём рисуем анимированный пламень
-    const flameHeight = 30 + 5 * Math.sin(flamePhase);
-    const flameWidth = 15 + 3 * Math.cos(flamePhase * 2);
+    const flameHeight = 30 + 5 * Math.sin(phase);
+    const flameWidth = 15 + 3 * Math.cos(phase * 2);
 
     let grad = ctx.createRadialGradient(0, 0, 5, 0, -flameHeight/2, flameWidth);
     grad.addColorStop(0, 'rgba(255, 200, 50, 1)');
@@ -151,162 +346,102 @@
     ctx.restore();
   }
 
-  // Фоновые блоки (камни, уголь, дерево)
-  function drawBackgroundBlocks() {
-    // Камень - серые квадраты
-    for(let i=0; i<8; i++) {
-      const size = 30;
-      let x = i * 70 + 20 + 10 * Math.sin(i + sparkle);
-      let y = 320 + 10 * Math.cos(i + sparkle * 0.5);
-      ctx.fillStyle = '#5a5a6a';
-      ctx.fillRect(x, y, size, size);
-
-      // Немного текстуры
-      ctx.strokeStyle = '#4a4a5a';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x+5,y+5);
-      ctx.lineTo(x+size-5,y+size-5);
-      ctx.moveTo(x+size-5,y+5);
-      ctx.lineTo(x+5,y+size-5);
-      ctx.stroke();
-    }
-
-    // Уголь — черные с блеском
-    for(let i=0; i<6; i++) {
-      const size = 20;
-      let x = 60 + i * 90 + 12 * Math.cos(i + sparkle * 0.7);
-      let y = 280 + 7 * Math.sin(i * 2 + sparkle);
-      ctx.fillStyle = '#111111';
-      ctx.shadowColor = '#333';
-      ctx.shadowBlur = 10;
-      ctx.fillRect(x, y, size, size);
-
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#222';
-      ctx.fillRect(x+5, y+5, size-10, size-10);
-    }
-
-    // Дерево — коричневые бревна
-    for(let i=0; i<4; i++) {
-      const w = 60;
-      const h = 20;
-      let x = 100 + i * 120 + 8 * Math.sin(i + sparkle * 0.3);
-      let y = 350 + 5 * Math.cos(i + sparkle * 0.6);
-      ctx.fillStyle = '#6a4320';
-      ctx.shadowColor = '#503314';
-      ctx.shadowBlur = 5;
-      ctx.fillRect(x, y, w, h);
-
-      ctx.shadowBlur = 0;
-      // Кольца дерева
-      ctx.strokeStyle = '#855c38';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.ellipse(x + w/2, y + h/2, w/3, h/2.5, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-
-  // Главный объект - уголь с мерцанием и светом
+  // Главный уголь с мерцанием и светом
   function drawCoal() {
     const coalX = canvas.width / 2 - 40;
     const coalY = canvas.height / 2 - 60;
 
-    // Тень и свет
     ctx.shadowColor = '#222';
     ctx.shadowBlur = 20;
-    ctx.fillStyle = `rgba(17, 17, 17, ${0.8 + 0.2 * Math.sin(sparkle)})`;
+    ctx.fillStyle = `rgba(17, 17, 17, ${0.8 + 0.2 * Math.sin(sparkle*5)})`;
     ctx.beginPath();
-    ctx.moveTo(coalX + 10, coalY + 10);
-    ctx.lineTo(coalX + 40, coalY + 15);
-    ctx.lineTo(coalX + 50, coalY + 30);
-    ctx.lineTo(coalX + 40, coalY + 50);
-    ctx.lineTo(coalX + 10, coalY + 55);
-    ctx.lineTo(coalX + 0, coalY + 30);
-    ctx.closePath();
+    ctx.ellipse(coalX + 40, coalY + 60, 50, 30, 0, 0, 2*Math.PI);
     ctx.fill();
 
-    // Светлая грань
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#555';
+    ctx.fillStyle = `rgba(10, 10, 10, 1)`;
     ctx.beginPath();
-    ctx.moveTo(coalX + 20, coalY + 20);
-    ctx.lineTo(coalX + 30, coalY + 22);
-    ctx.lineTo(coalX + 28, coalY + 35);
-    ctx.lineTo(coalX + 18, coalY + 33);
+    ctx.ellipse(coalX + 40, coalY + 60, 48, 28, 0, 0, 2*Math.PI);
+    ctx.fill();
+
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.moveTo(coalX + 10, coalY + 70);
+    ctx.lineTo(coalX + 70, coalY + 70);
+    ctx.lineTo(coalX + 60, coalY + 110);
+    ctx.lineTo(coalX + 20, coalY + 110);
     ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Пламя угля
+    let flameHeight = 40 + 10 * Math.sin(sparkle * 8);
+    ctx.fillStyle = `rgba(255, 140, 50, ${0.4 + 0.6 * Math.sin(sparkle * 8)})`;
+    ctx.beginPath();
+    ctx.moveTo(coalX + 40, coalY + 10);
+    ctx.bezierCurveTo(coalX + 20, coalY + 30, coalX + 30, coalY - 10, coalX + 40, coalY + 10);
+    ctx.bezierCurveTo(coalX + 50, coalY - 10, coalX + 60, coalY + 30, coalX + 40, coalY + 10);
     ctx.fill();
   }
 
-  // Анимация искр (частицы падающего угля)
-  function updateParticles() {
-    if(particles.length < 30 && Math.random() < 0.3) {
-      particles.push(createParticle());
+  // Клик по углю
+  canvas.addEventListener('click', e => {
+    // Добавляем уголь
+    coal += coalPerClick;
+    playClickSound();
+
+    // Добавляем частицы от клика
+    for(let i=0; i<10; i++) {
+      particles.push(createParticle(e.offsetX, e.offsetY));
     }
-
-    for(let i=particles.length - 1; i >= 0; i--) {
-      const p = particles[i];
-      p.y += p.speedY;
-      p.alpha -= p.decay;
-
-      if(p.alpha <= 0 || p.y > canvas.height) {
-        particles.splice(i, 1);
-        continue;
-      }
-
-      ctx.fillStyle = `rgba(100, 100, 110, ${p.alpha})`;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  // Основной цикл рисования
-  function draw() {
-    // Фон с градиентом (глубина шахты)
-    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    grad.addColorStop(0, '#1a2237');
-    grad.addColorStop(0.7, '#0d121f');
-    grad.addColorStop(1, '#070a13');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    drawBackgroundBlocks();
-
-    drawCoal();
-
-    // Иконки инструментов слева и справа
-    drawPickaxe(80, 200, 1.5);
-    drawBucket(500, 260, 1.5);
-    drawTorch(50, 50, 1.3, fireFlamePhase);
-    drawTorch(550, 50, 1.3, fireFlamePhase + Math.PI);
-
-    updateParticles();
-
-    sparkle += 0.07;
-    fireFlamePhase += 0.12;
-
-    requestAnimationFrame(draw);
-  }
-
-  draw();
-
-  // Клик по канвасу для добычи угля
-  canvas.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-
-    // Проверим попадает ли клик на уголь (примерно область)
-    const coalX = canvas.width / 2 - 40;
-    const coalY = canvas.height / 2 - 60;
-    if(clickX >= coalX && clickX <= coalX + 50 &&
-       clickY >= coalY && clickY <= coalY + 55) {
-      alert('Добыт уголь!'); // заглушка, тут можно добавлять логику игры
-    }
+    updateUI();
   });
 
+  // Автоматическая добыча
+  function autoMineTick(time) {
+    if(autoMineLevel > 0 && time - lastAutoMine > autoMineInterval) {
+      coal += coalPerSecond;
+      lastAutoMine = time;
+      updateUI();
+    }
+  }
+
+  // Основной игровой цикл
+  function gameLoop(time = 0) {
+    sparkle += 0.03;
+    flamePhase += 0.1;
+
+    // Фон
+    drawBackground();
+
+    // Кирка слева
+    drawPickaxe(100, 250, 1.6);
+
+    // Ведро справа
+    drawBucket(450, 280, 1.3);
+
+    // Факелы по краям
+    drawTorch(40, 100, 1, flamePhase);
+    drawTorch(canvas.width - 40, 100, 1, flamePhase + Math.PI);
+
+    // Главный уголь
+    drawCoal();
+
+    // Частицы угля
+    updateParticles();
+    drawParticles();
+
+    // Авто добыча
+    autoMineTick(time);
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  updateUI();
+  gameLoop();
 })();
 </script>
 
