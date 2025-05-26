@@ -2,542 +2,1706 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<title>Ultimate Mine Clicker - Большая игра</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Coal Mine Clicker — Часть 1</title>
 <style>
-  /* Стили для всей игры */
-  @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
-
+  /* Сброс и базовые стили */
+  * {
+    box-sizing: border-box;
+  }
   body {
-    margin: 0; background: linear-gradient(135deg, #0a1f2f, #061121);
-    font-family: 'Roboto Mono', monospace;
-    color: #ccddff;
+    margin: 0; 
+    overflow: hidden;
+    background: linear-gradient(135deg, #0b0c0f, #1a1c22);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #ddd;
     user-select: none;
-    overflow-x: hidden;
   }
-
-  #game-container {
-    max-width: 960px;
-    margin: 20px auto;
-    background: #112233dd;
-    border-radius: 20px;
-    box-shadow: 0 0 25px #335588aa;
-    padding: 15px 20px;
+  #gameCanvas {
+    display: block;
+    background: radial-gradient(circle at center, #22262b, #0a0a0c);
+    margin: 0 auto;
   }
-
-  #top-bar {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 15px;
-  }
-
-  .stat {
-    font-size: 18px;
-    padding: 6px 12px;
-    background: #21364e88;
+  #ui {
+    position: fixed;
+    top: 15px; left: 15px;
+    background: rgba(30, 30, 35, 0.85);
+    padding: 15px 25px;
     border-radius: 12px;
-    box-shadow: inset 0 0 8px #2a466a;
-    user-select: none;
-    min-width: 100px;
-    text-align: center;
+    box-shadow: 0 0 20px #0008;
+    width: 320px;
+    font-size: 15px;
+    z-index: 10;
   }
-
-  #upgrade-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
-    margin-top: 10px;
+  #ui h2 {
+    margin-top: 0;
+    color: #f5c518;
+    text-shadow: 0 0 5px #f5c518bb;
   }
-
-  button.upgrade-btn {
-    flex: 1 1 180px;
-    background: #335577cc;
-    border: none;
-    color: #aaddff;
-    font-weight: 700;
-    font-size: 16px;
-    border-radius: 14px;
-    padding: 10px;
-    cursor: pointer;
-    box-shadow: 0 0 12px #4477cc88;
+  #resources {
+    margin-bottom: 12px;
+  }
+  #resources div {
+    margin-bottom: 6px;
     display: flex;
     align-items: center;
-    gap: 10px;
-    transition: background 0.3s ease;
-    user-select: none;
   }
-  button.upgrade-btn:disabled {
-    background: #22446655;
-    color: #557799aa;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-  button.upgrade-btn:hover:not(:disabled) {
-    background: #5588ccdd;
-  }
-
-  #messages {
-    margin: 12px 0 20px 0;
-    height: 22px;
-    font-weight: 700;
-    text-align: center;
-    color: #99cc99;
-  }
-
-  canvas#game-canvas {
-    display: block;
-    margin: 0 auto;
-    background: linear-gradient(180deg, #0a1a28 0%, #050a15 100%);
-    border-radius: 18px;
-    box-shadow: 0 0 24px #225599cc;
-    max-width: 100%;
-  }
-
   .icon {
-    width: 30px;
-    height: 30px;
+    width: 24px; height: 24px;
+    margin-right: 8px;
+    filter: drop-shadow(0 0 1px #000);
   }
-
-  /* Подсказка */
-  #tooltip {
-    position: absolute;
-    background: #223344cc;
-    color: #ccddffcc;
-    padding: 8px 14px;
-    border-radius: 14px;
-    pointer-events: none;
+  button {
+    cursor: pointer;
+    background: linear-gradient(90deg, #354458, #4a5b76);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    margin-top: 10px;
+    width: 100%;
+    color: #f5f5f5;
+    font-weight: 700;
     font-size: 14px;
-    max-width: 320px;
+    text-shadow: 0 0 3px #0007;
+    box-shadow: 0 3px 8px #0005;
+    transition: all 0.2s ease;
+  }
+  button:hover {
+    background: linear-gradient(90deg, #536c95, #7185ac);
+    box-shadow: 0 5px 14px #4a7ab8cc;
+  }
+  #shopPanel {
+    position: fixed;
+    top: 15px; right: 15px;
+    background: rgba(20, 20, 22, 0.95);
+    padding: 18px 22px;
+    border-radius: 14px;
+    box-shadow: 0 0 18px #000d;
+    width: 350px;
+    max-height: 80vh;
+    overflow-y: auto;
+    color: #ddd;
     display: none;
-    user-select: none;
-    z-index: 10;
-    box-shadow: 0 0 12px #3366ccbb;
+    z-index: 15;
+  }
+  #shopPanel h3 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    color: #f5c518;
+    text-shadow: 0 0 6px #f5c518cc;
+  }
+  .shopItem {
+    background: #2b2f38;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    padding: 12px 14px;
+    box-shadow: inset 0 0 4px #0007;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.2s ease;
+  }
+  .shopItem:hover {
+    background: #3a4163;
+  }
+  .shopItem .info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .shopItem img {
+    width: 32px; height: 32px;
+    filter: drop-shadow(0 0 2px #000);
+  }
+  .shopItem button {
+    width: auto;
+    padding: 6px 14px;
+    font-size: 13px;
+    background: linear-gradient(90deg, #2e7d32, #60ad5e);
+    box-shadow: 0 2px 10px #1b4d1ccc;
+  }
+  .shopItem button:disabled {
+    background: #444;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+  #logPanel {
+    position: fixed;
+    bottom: 15px; left: 15px; right: 15px;
+    max-height: 120px;
+    background: rgba(15,15,15,0.75);
+    border-radius: 12px;
+    overflow-y: auto;
+    color: #ddd;
+    font-size: 13px;
+    box-shadow: 0 0 16px #000;
+    padding: 10px 15px;
+    z-index: 20;
+  }
+  #logPanel div {
+    margin-bottom: 6px;
+  }
+  #levelUpEffect {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 48px;
+    font-weight: 900;
+    color: #ffda44;
+    text-shadow:
+      0 0 10px #ffda44aa,
+      0 0 20px #ffda44cc,
+      0 0 30px #ffaa00cc;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1s ease;
+    z-index: 25;
   }
 </style>
 </head>
 <body>
 
-<div id="game-container">
+<canvas id="gameCanvas" width="1280" height="720"></canvas>
 
-  <div id="top-bar">
-    <div class="stat" id="coal-count" title="Количество добытого угля">Уголь: 0</div>
-    <div class="stat" id="per-click" title="Количество угля за один клик">Клик: 1</div>
-    <div class="stat" id="per-second" title="Автоматическая добыча угля в секунду">Авто: 0</div>
+<div id="ui">
+  <h2>Шахта Угля</h2>
+  <div id="resources">
+    <div><img class="icon" src="https://cdn-icons-png.flaticon.com/512/3208/3208721.png" alt="Уголь"> Уголь: <span id="coalCount">0</span></div>
+    <div><img class="icon" src="https://cdn-icons-png.flaticon.com/512/854/854878.png" alt="Кирка"> Кирка: <span id="pickaxeLevel">1</span></div>
+    <div><img class="icon" src="https://cdn-icons-png.flaticon.com/512/616/616408.png" alt="XP"> Уровень: <span id="playerLevel">1</span> (<span id="xpCount">0</span>/<span id="xpNext">10</span>)</div>
   </div>
-
-  <div id="upgrade-buttons">
-    <!-- Кнопки апгрейдов создаются JS -->
-  </div>
-
-  <div id="messages"></div>
-
-  <canvas id="game-canvas" width="920" height="500"></canvas>
-
+  <button id="mineBtn">Копать уголь</button>
+  <button id="upgradePickaxeBtn">Улучшить Кирку (10 угля)</button>
+  <button id="shopToggleBtn">Открыть Магазин</button>
 </div>
 
-<div id="tooltip"></div>
+<div id="shopPanel">
+  <h3>Магазин Шахтера</h3>
+  <div id="shopItems"></div>
+  <button id="closeShopBtn" style="margin-top:10px; width:100%;">Закрыть Магазин</button>
+</div>
+
+<div id="logPanel"></div>
+<div id="levelUpEffect">УРОВЕНЬ ВЫШЕЛ!</div>
 
 <script>
 (() => {
-  // ============== Подготовка контекста и переменных =================
-  const canvas = document.getElementById('game-canvas');
+  // Инициализация канваса
+  const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
+  const W = canvas.width = window.innerWidth > 1280 ? 1280 : window.innerWidth;
+  const H = canvas.height = window.innerHeight > 720 ? 720 : window.innerHeight;
 
-  const coalCountEl = document.getElementById('coal-count');
-  const perClickEl = document.getElementById('per-click');
-  const perSecondEl = document.getElementById('per-second');
-  const upgradeButtonsContainer = document.getElementById('upgrade-buttons');
-  const messagesEl = document.getElementById('messages');
-  const tooltipEl = document.getElementById('tooltip');
+  // Элементы UI
+  const coalCountEl = document.getElementById('coalCount');
+  const pickaxeLevelEl = document.getElementById('pickaxeLevel');
+  const playerLevelEl = document.getElementById('playerLevel');
+  const xpCountEl = document.getElementById('xpCount');
+  const xpNextEl = document.getElementById('xpNext');
+  const mineBtn = document.getElementById('mineBtn');
+  const upgradePickaxeBtn = document.getElementById('upgradePickaxeBtn');
+  const shopToggleBtn = document.getElementById('shopToggleBtn');
+  const shopPanel = document.getElementById('shopPanel');
+  const shopItemsContainer = document.getElementById('shopItems');
+  const closeShopBtn = document.getElementById('closeShopBtn');
+  const logPanel = document.getElementById('logPanel');
+  const levelUpEffect = document.getElementById('levelUpEffect');
 
-  // Звуковой контекст
-  const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  const audioCtx = new AudioCtx();
+  // Иконки ресурсов для рисования в канвасе
+  const iconCoal = new Image();
+  iconCoal.src = "https://cdn-icons-png.flaticon.com/512/3208/3208721.png";
+  const iconPickaxe = new Image();
+  iconPickaxe.src = "https://cdn-icons-png.flaticon.com/512/854/854878.png";
 
-  // ===================== Классы игры ==============================
+  // Звуки
+  const soundMine = new Audio('https://freesound.org/data/previews/66/66717_634166-lq.mp3');
+  soundMine.volume = 0.1;
 
-  // Класс для генерации звуков
-  class Sound {
-    static playClick() {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(440 + Math.random() * 220, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.07, audioCtx.currentTime);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.1);
+  const soundUpgrade = new Audio('https://freesound.org/data/previews/250/250629_4486188-lq.mp3');
+  soundUpgrade.volume = 0.07;
+
+  const soundLevelUp = new Audio('https://freesound.org/data/previews/331/331912_3248244-lq.mp3');
+  soundLevelUp.volume = 0.15;
+
+  // Игровые данные
+  let coal = 0;
+  let pickaxeLevel = 1;
+  let xp = 0;
+  let level = 1;
+  let xpForNext = 10;
+  let isShopOpen = false;
+
+  // Логи игры
+  function addLog(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    logPanel.prepend(div);
+    if(logPanel.childElementCount > 20) {
+      logPanel.removeChild(logPanel.lastChild);
     }
   }
 
-  // Частица для эффекта клика
+  // Обновление UI
+  function updateUI() {
+    coalCountEl.textContent = coal;
+    pickaxeLevelEl.textContent = pickaxeLevel;
+    playerLevelEl.textContent = level;
+    xpCountEl.textContent = xp;
+    xpNextEl.textContent = xpForNext;
+    upgradePickaxeBtn.textContent = `Улучшить Кирку (${10 * pickaxeLevel} угля)`;
+    upgradePickaxeBtn.disabled = coal < 10 * pickaxeLevel;
+    mineBtn.disabled = false;
+  }
+
+  // Прокачка уровня игрока
+  function tryLevelUp() {
+    while (xp >= xpForNext) {
+      xp -= xpForNext;
+      level++;
+      xpForNext = Math.floor(xpForNext * 1.6);
+      showLevelUpEffect();
+      soundLevelUp.play();
+      addLog(`Поздравляем! Вы достигли уровня ${level}!`);
+    }
+  }
+
+  // Эффект повышения уровня
+  function showLevelUpEffect() {
+    levelUpEffect.style.opacity = 1;
+    setTimeout(() => {
+      levelUpEffect.style.opacity = 0;
+    }, 2000);
+  }
+
+  // Основная логика добычи угля
+  function mineCoal() {
+    let amount = pickaxeLevel + Math.floor(Math.random() * pickaxeLevel);
+    coal += amount;
+    xp += amount;
+    addLog(`Вы выкопали ${amount} угля!`);
+    soundMine.currentTime = 0;
+    soundMine.play();
+    tryLevelUp();
+    updateUI();
+    spawnMiningParticles();
+  }
+
+  // Улучшение кирки
+  function upgradePickaxe() {
+    let cost = 10 * pickaxeLevel;
+    if(coal >= cost) {
+      coal -= cost;
+      pickaxeLevel++;
+      addLog(`Кирка улучшена до уровня ${pickaxeLevel}!`);
+      soundUpgrade.play();
+      updateUI();
+    }
+  }
+
+  // Переходы по магазинам
+  shopToggleBtn.addEventListener('click', () => {
+    isShopOpen = !isShopOpen;
+    shopPanel.style.display = isShopOpen ? 'block' : 'none';
+  });
+
+  closeShopBtn.addEventListener('click', () => {
+    isShopOpen = false;
+    shopPanel.style.display = 'none';
+  });
+
+  mineBtn.addEventListener('click', mineCoal);
+  upgradePickaxeBtn.addEventListener('click', upgradePickaxe);
+
+  // Частицы добычи
+  let particles = [];
   class Particle {
     constructor(x, y, color) {
       this.x = x;
       this.y = y;
-      this.size = 4 + Math.random() * 3;
-      this.speedX = (Math.random() - 0.5) * 4;
-      this.speedY = -2 - Math.random() * 3;
+      this.radius = 4 + Math.random() * 2;
+      this.color = color;
+      this.vx = (Math.random() - 0.5) * 3;
+      this.vy = -Math.random() * 3 - 1;
       this.alpha = 1;
-      this.color = color || 'rgba(255,255,255,1)';
-      this.decay = 0.02 + Math.random() * 0.02;
+      this.life = 50 + Math.random() * 30;
     }
     update() {
-      this.x += this.speedX;
-      this.y += this.speedY;
-      this.alpha -= this.decay;
-      this.size *= 0.95;
+      this.x += this.vx;
+      this.y += this.vy;
+      this.alpha -= 0.02;
+      this.life--;
     }
     draw(ctx) {
       ctx.save();
-      ctx.fillStyle = this.color.replace('1)', `${this.alpha})`);
+      ctx.globalAlpha = this.alpha > 0 ? this.alpha : 0;
+      ctx.fillStyle = this.color;
+      ctx.shadowColor = this.color;
+      ctx.shadowBlur = 6;
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+  function spawnMiningParticles() {
+    for(let i = 0; i < 8; i++) {
+      particles.push(new Particle(W/2 + (Math.random()-0.5)*100, H/2 + (Math.random()-0.5)*80, '#ffec47'));
+    }
+  }
+
+  // Рисуем шахту
+  function drawMine(ctx) {
+    const baseX = W/2, baseY = H/2 + 100;
+    // Земля и камни
+    ctx.fillStyle = '#3a3f46';
+    ctx.fillRect(baseX - 180, baseY, 360, 200);
+    // Вход в шахту
+    ctx.fillStyle = '#1f2229';
+    ctx.beginPath();
+    ctx.ellipse(baseX, baseY + 40, 110, 70, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Кирка (символ)
+    ctx.save();
+    ctx.translate(baseX + 120, baseY - 40);
+    ctx.rotate(Math.sin(Date.now()/400)*0.1);
+    ctx.fillStyle = '#d9d9d9';
+    ctx.shadowColor = '#fff';
+    ctx.shadowBlur = 10;
+    ctx.fillRect(-10, -40, 20, 80);
+    ctx.fillStyle = '#6b6b6b';
+    ctx.beginPath();
+    ctx.moveTo(-10, -40);
+    ctx.lineTo(10, -40);
+    ctx.lineTo(20, -60);
+    ctx.lineTo(-20, -60);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Главный цикл
+  function gameLoop() {
+    ctx.clearRect(0, 0, W, H);
+
+    drawMine(ctx);
+
+    // Частицы
+    particles = particles.filter(p => p.life > 0 && p.alpha > 0);
+    for(let p of particles) {
+      p.update();
+      p.draw(ctx);
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Стартуем
+  updateUI();
+  gameLoop();
+
+  // Инициализация магазина (будет расширяться в следующих частях)
+  const shopItems = [
+    {
+      id: 'autoMiner',
+      name: 'Автоматический шахтёр',
+      desc: 'Автоматически добывает 1 уголь в 2 секунды',
+      cost: 50,
+      purchased: 0,
+      icon: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+      effect: function() {
+        if(!this.timer) {
+          this.timer = setInterval(() => {
+            coal++;
+            xp++;
+            addLog('Автоматический шахтёр добывает 1 уголь');
+            updateUI();
+            tryLevelUp();
+          }, 2000);
+        }
+      }
+    }
+  ];
+
+  function renderShop() {
+    shopItemsContainer.innerHTML = '';
+    for(let item of shopItems) {
+      const div = document.createElement('div');
+      div.classList.add('shopItem');
+
+      const infoDiv = document.createElement('div');
+      infoDiv.classList.add('info');
+
+      const img = document.createElement('img');
+      img.src = item.icon;
+      img.alt = item.name;
+
+      const desc = document.createElement('div');
+      desc.innerHTML = `<strong>${item.name}</strong><br><small>${item.desc}</small>`;
+
+      infoDiv.appendChild(img);
+      infoDiv.appendChild(desc);
+
+      const buyBtn = document.createElement('button');
+      buyBtn.textContent = `Купить (${item.cost} угля)`;
+      buyBtn.disabled = coal < item.cost;
+
+      buyBtn.addEventListener('click', () => {
+        if(coal >= item.cost) {
+          coal -= item.cost;
+          item.purchased++;
+          addLog(`Вы купили: ${item.name} (${item.purchased})`);
+          item.effect();
+          updateUI();
+          renderShop();
+        }
+      });
+
+      div.appendChild(infoDiv);
+      div.appendChild(buyBtn);
+
+      shopItemsContainer.appendChild(div);
+    }
+  }
+
+  renderShop();
+
+  // Поддержка ресайза окна
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth > 1280 ? 1280 : window.innerWidth;
+    canvas.height = window.innerHeight > 720 ? 720 : window.innerHeight;
+  });
+
+})();
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = window.innerWidth > 1280 ? 1280 : window.innerWidth;
+  const H = canvas.height = window.innerHeight > 720 ? 720 : window.innerHeight;
+
+  const coalCountEl = document.getElementById('coalCount');
+  const pickaxeLevelEl = document.getElementById('pickaxeLevel');
+  const playerLevelEl = document.getElementById('playerLevel');
+  const xpCountEl = document.getElementById('xpCount');
+  const xpNextEl = document.getElementById('xpNext');
+  const mineBtn = document.getElementById('mineBtn');
+  const upgradePickaxeBtn = document.getElementById('upgradePickaxeBtn');
+  const shopToggleBtn = document.getElementById('shopToggleBtn');
+  const shopPanel = document.getElementById('shopPanel');
+  const shopItemsContainer = document.getElementById('shopItems');
+  const closeShopBtn = document.getElementById('closeShopBtn');
+  const logPanel = document.getElementById('logPanel');
+  const levelUpEffect = document.getElementById('levelUpEffect');
+
+  // Новая кнопка добычи камней
+  let mineStoneBtn = document.getElementById('mineStoneBtn');
+  if (!mineStoneBtn) {
+    mineStoneBtn = document.createElement('button');
+    mineStoneBtn.id = 'mineStoneBtn';
+    mineStoneBtn.textContent = 'Копать камни (редко)';
+    mineStoneBtn.style.marginTop = '8px';
+    document.getElementById('ui').insertBefore(mineStoneBtn, upgradePickaxeBtn.nextSibling);
+  }
+
+  // Иконки
+  const iconCoal = new Image();
+  iconCoal.src = "https://cdn-icons-png.flaticon.com/512/3208/3208721.png";
+
+  const iconPickaxe = new Image();
+  iconPickaxe.src = "https://cdn-icons-png.flaticon.com/512/854/854878.png";
+
+  const iconStone = new Image();
+  iconStone.src = "https://cdn-icons-png.flaticon.com/512/1673/1673763.png"; // камень
+
+  // Звуки
+  const soundMine = new Audio('https://freesound.org/data/previews/66/66717_634166-lq.mp3');
+  soundMine.volume = 0.1;
+
+  const soundUpgrade = new Audio('https://freesound.org/data/previews/250/250629_4486188-lq.mp3');
+  soundUpgrade.volume = 0.07;
+
+  const soundLevelUp = new Audio('https://freesound.org/data/previews/331/331912_3248244-lq.mp3');
+  soundLevelUp.volume = 0.15;
+
+  const soundStoneMine = new Audio('https://freesound.org/data/previews/45/45428_512123-lq.mp3');
+  soundStoneMine.volume = 0.12;
+
+  // Игровые данные
+  let coal = 0;
+  let stones = 0; // новый ресурс
+  let pickaxeLevel = 1;
+  let xp = 0;
+  let level = 1;
+  let xpForNext = 10;
+  let isShopOpen = false;
+
+  // Логи с цветами
+  function addLog(text, type = 'info') {
+    const div = document.createElement('div');
+    div.textContent = text;
+    switch(type) {
+      case 'info': div.style.color = '#ddd'; break;
+      case 'success': div.style.color = '#7cfc00'; break;
+      case 'warn': div.style.color = '#ffa500'; break;
+      case 'error': div.style.color = '#ff4c4c'; break;
+      case 'rare': div.style.color = '#4dd0e1'; break;
+      default: div.style.color = '#ddd';
+    }
+    logPanel.prepend(div);
+    if(logPanel.childElementCount > 25) {
+      logPanel.removeChild(logPanel.lastChild);
+    }
+  }
+
+  // Обновление UI
+  function updateUI() {
+    coalCountEl.textContent = coal;
+    pickaxeLevelEl.textContent = pickaxeLevel;
+    playerLevelEl.textContent = level;
+    xpCountEl.textContent = xp;
+    xpNextEl.textContent = xpForNext;
+
+    upgradePickaxeBtn.textContent = `Улучшить Кирку (${10 * pickaxeLevel} угля)`;
+    upgradePickaxeBtn.disabled = coal < 10 * pickaxeLevel;
+
+    mineBtn.disabled = false;
+    mineStoneBtn.disabled = false;
+
+    // Добавим камни в UI
+    if (!document.getElementById('stoneCount')) {
+      const div = document.createElement('div');
+      div.id = 'stoneCountDiv';
+      div.style.marginTop = '6px';
+      div.innerHTML = `<img class="icon" src="${iconStone.src}" alt="Камни"> Камни: <span id="stoneCount">0</span>`;
+      document.getElementById('resources').appendChild(div);
+    }
+    document.getElementById('stoneCount').textContent = stones;
+  }
+
+  // Прокачка уровня игрока
+  function tryLevelUp() {
+    while (xp >= xpForNext) {
+      xp -= xpForNext;
+      level++;
+      xpForNext = Math.floor(xpForNext * 1.6);
+      showLevelUpEffect();
+      soundLevelUp.play();
+      addLog(`Поздравляем! Вы достигли уровня ${level}!`, 'success');
+    }
+  }
+
+  // Эффект повышения уровня
+  function showLevelUpEffect() {
+    levelUpEffect.style.opacity = 1;
+    setTimeout(() => {
+      levelUpEffect.style.opacity = 0;
+    }, 2200);
+  }
+
+  // Добыча угля
+  function mineCoal() {
+    let amount = pickaxeLevel + Math.floor(Math.random() * pickaxeLevel);
+    coal += amount;
+    xp += amount;
+    addLog(`Вы выкопали ${amount} угля!`, 'info');
+    soundMine.currentTime = 0;
+    soundMine.play();
+    tryLevelUp();
+    updateUI();
+    spawnMiningParticles('#ffec47');
+  }
+
+  // Добыча камней (редко)
+  function mineStone() {
+    let chance = Math.random();
+    if (chance < 0.25) { // 25% шанс получить камень
+      let amount = 1 + Math.floor(Math.random() * 2);
+      stones += amount;
+      xp += amount * 2;
+      addLog(`Вы нашли ${amount} камня!`, 'rare');
+      soundStoneMine.currentTime = 0;
+      soundStoneMine.play();
+      tryLevelUp();
+      updateUI();
+      spawnMiningParticles('#9be2e8');
+      spawnSparkles();
+    } else {
+      addLog('Камни не найдены. Попробуйте ещё.', 'warn');
+    }
+  }
+
+  // Улучшение кирки
+  function upgradePickaxe() {
+    let cost = 10 * pickaxeLevel;
+    if(coal >= cost) {
+      coal -= cost;
+      pickaxeLevel++;
+      addLog(`Кирка улучшена до уровня ${pickaxeLevel}!`, 'success');
+      soundUpgrade.play();
+      updateUI();
+    }
+  }
+
+  // Магазин
+  shopToggleBtn.addEventListener('click', () => {
+    isShopOpen = !isShopOpen;
+    shopPanel.style.display = isShopOpen ? 'block' : 'none';
+  });
+
+  closeShopBtn.addEventListener('click', () => {
+    isShopOpen = false;
+    shopPanel.style.display = 'none';
+  });
+
+  mineBtn.addEventListener('click', mineCoal);
+  mineStoneBtn.addEventListener('click', mineStone);
+  upgradePickaxeBtn.addEventListener('click', upgradePickaxe);
+
+  // Частицы добычи
+  let particles = [];
+  class Particle {
+    constructor(x, y, color) {
+      this.x = x;
+      this.y = y;
+      this.radius = 4 + Math.random() * 2;
+      this.color = color;
+      this.vx = (Math.random() - 0.5) * 3;
+      this.vy = -Math.random() * 3 - 1;
+      this.alpha = 1;
+      this.life = 50 + Math.random() * 30;
+    }
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.alpha -= 0.02;
+      this.life--;
+    }
+    draw(ctx) {
+      ctx.save();
+      ctx.globalAlpha = this.alpha > 0 ? this.alpha : 0;
+      ctx.fillStyle = this.color;
+      ctx.shadowColor = this.color;
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
   }
 
-  // Класс Кирки с разными типами
-  class Pickaxe {
-    constructor(name, baseClick, iconPath, description) {
-      this.name = name;
-      this.level = 1;
-      this.baseClick = baseClick;
-      this.clickPower = baseClick;
-      this.upgradeCost = 15;
-      this.iconPath = iconPath;
-      this.description = description;
-    }
-
-    upgrade(playerCoal) {
-      if (playerCoal >= this.upgradeCost) {
-        this.level++;
-        this.clickPower *= 1.5;
-        this.upgradeCost = Math.floor(this.upgradeCost * 2.5);
-        return true;
-      }
-      return false;
-    }
-
-    getClickPower() {
-      return Math.floor(this.clickPower);
+  function spawnMiningParticles(color) {
+    for(let i = 0; i < 8; i++) {
+      particles.push(new Particle(W/2 + (Math.random()-0.5)*100, H/2 + (Math.random()-0.5)*80, color));
     }
   }
 
-  // Класс Игрока (хранит состояние)
-  class Player {
-    constructor() {
-      this.coal = 0;
-      this.pickaxe = new Pickaxe(
-        "Стальная Кирка",
-        1,
-        'M10 2 L14 6 L10 10 L6 6 Z', // Просто пример иконки в SVG path (будем рисовать отдельно)
-        "Обычная кирка, базовая добыча"
-      );
-      this.autoMineLevel = 0;
-      this.autoMinePower = 0;
-      this.autoMineCost = 50;
-      this.autoMineIntervalMs = 1000;
-      this.upgrades = [];
+  // Блески для камней
+  let sparkles = [];
+  class Sparkle {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.size = 1 + Math.random()*2;
+      this.alpha = 1;
+      this.life = 30 + Math.random()*20;
+      this.vx = (Math.random()-0.5)*1;
+      this.vy = -Math.random()*1;
     }
-
-    addCoal(amount) {
-      this.coal += amount;
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.alpha -= 0.03;
+      this.life--;
     }
-
-    canAfford(cost) {
-      return this.coal >= cost;
-    }
-
-    spendCoal(amount) {
-      if(this.canAfford(amount)){
-        this.coal -= amount;
-        return true;
-      }
-      return false;
-    }
-
-    upgradePickaxe() {
-      if(this.spendCoal(this.pickaxe.upgradeCost)) {
-        this.pickaxe.upgrade(this.coal);
-        return true;
-      }
-      return false;
-    }
-
-    buyAutoMine() {
-      if(this.spendCoal(this.autoMineCost)) {
-        this.autoMineLevel++;
-        this.autoMinePower += 0.5 * this.autoMineLevel;
-        this.autoMineCost = Math.floor(this.autoMineCost * 1.9);
-        return true;
-      }
-      return false;
-    }
-  }
-
-  // ==================== Игра =======================
-  class Game {
-    constructor() {
-      this.player = new Player();
-      this.particles = [];
-      this.lastAutoMineTime = 0;
-      this.lastTime = 0;
-      this.sparkle = 0;
-
-      // Иконки в SVG path для кнопок (просто базовые)
-      this.icons = {
-        pickaxe: 'M10 2 L14 6 L10 10 L6 6 Z', // кирка
-        autoMine: 'M5 10 L15 10 L10 20 Z', // лопатка или что-то
-        coal: 'M12 6 L16 14 L8 16 Z'
-      };
-
-      this.setupUI();
-      this.load();
-      this.startLoop();
-    }
-
-    setupUI() {
-      // Создаем кнопки апгрейда кирки и автодобычи
-      this.pickaxeBtn = document.createElement('button');
-      this.pickaxeBtn.className = 'upgrade-btn';
-      this.pickaxeBtn.title = 'Улучшить кирку — увеличивает уголь за клик';
-      this.pickaxeBtn.innerHTML = `<svg class="icon" viewBox="0 0 20 20"><path fill="#aaddff" d="${this.icons.pickaxe}"/></svg> Кирка: ${this.player.pickaxe.level} (Цена: ${this.player.pickaxe.upgradeCost})`;
-      this.pickaxeBtn.addEventListener('click', () => this.upgradePickaxe());
-      upgradeButtonsContainer.appendChild(this.pickaxeBtn);
-
-      this.autoMineBtn = document.createElement('button');
-      this.autoMineBtn.className = 'upgrade-btn';
-      this.autoMineBtn.title = 'Купить авто-добычу — автоматическое получение угля каждые секунду';
-      this.autoMineBtn.innerHTML = `<svg class="icon" viewBox="0 0 20 20"><path fill="#aaddff" d="${this.icons.autoMine}"/></svg> Авто-майнинг: ${this.player.autoMineLevel} (Цена: ${this.player.autoMineCost})`;
-      this.autoMineBtn.addEventListener('click', () => this.buyAutoMine());
-      upgradeButtonsContainer.appendChild(this.autoMineBtn);
-
-      // Клик по холсту
-      canvas.addEventListener('click', (e) => this.onCanvasClick(e));
-
-      this.updateUI();
-    }
-
-    onCanvasClick(e) {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const power = this.player.pickaxe.getClickPower();
-
-      this.player.addCoal(power);
-      this.spawnParticles(x, y);
-      Sound.playClick();
-      this.showMessage(`+${power} угля`);
-      this.updateUI();
-    }
-
-    spawnParticles(x, y) {
-      for(let i = 0; i < 15; i++) {
-        this.particles.push(new Particle(x, y, `rgba(170, 220, 255, 1)`));
-      }
-    }
-
-    upgradePickaxe() {
-      if(this.player.upgradePickaxe()) {
-        this.showMessage(`Кирка улучшена! Урон: ${this.player.pickaxe.getClickPower()}`);
-      } else {
-        this.showMessage(`Недостаточно угля для улучшения кирки!`);
-      }
-      this.updateUI();
-    }
-
-    buyAutoMine() {
-      if(this.player.buyAutoMine()) {
-        this.showMessage(`Куплен уровень авто-майнинга: ${this.player.autoMineLevel}`);
-      } else {
-        this.showMessage(`Недостаточно угля для авто-майнинга!`);
-      }
-      this.updateUI();
-    }
-
-    updateUI() {
-      coalCountEl.textContent = `Уголь: ${Math.floor(this.player.coal)}`;
-      perClickEl.textContent = `Клик: ${this.player.pickaxe.getClickPower()}`;
-      perSecondEl.textContent = `Авто: ${this.player.autoMinePower.toFixed(1)}`;
-
-      this.pickaxeBtn.innerHTML = `<svg class="icon" viewBox="0 0 20 20"><path fill="#aaddff" d="${this.icons.pickaxe}"/></svg> Кирка: ${this.player.pickaxe.level} (Цена: ${this.player.pickaxe.upgradeCost})`;
-      this.pickaxeBtn.disabled = !this.player.canAfford(this.player.pickaxe.upgradeCost);
-
-      this.autoMineBtn.innerHTML = `<svg class="icon" viewBox="0 0 20 20"><path fill="#aaddff" d="${this.icons.autoMine}"/></svg> Авто-майнинг: ${this.player.autoMineLevel} (Цена: ${this.player.autoMineCost})`;
-      this.autoMineBtn.disabled = !this.player.canAfford(this.player.autoMineCost);
-    }
-
-    showMessage(text) {
-      messagesEl.textContent = text;
-      if(this.msgTimeout) clearTimeout(this.msgTimeout);
-      this.msgTimeout = setTimeout(() => {
-        messagesEl.textContent = '';
-      }, 2500);
-    }
-
-    save() {
-      const saveData = {
-        coal: this.player.coal,
-        pickaxe: {
-          level: this.player.pickaxe.level,
-          clickPower: this.player.pickaxe.clickPower,
-          upgradeCost: this.player.pickaxe.upgradeCost
-        },
-        autoMineLevel: this.player.autoMineLevel,
-        autoMinePower: this.player.autoMinePower,
-        autoMineCost: this.player.autoMineCost
-      };
-      localStorage.setItem('ultimateMineSave', JSON.stringify(saveData));
-    }
-
-    load() {
-      const saved = localStorage.getItem('ultimateMineSave');
-      if(saved) {
-        try {
-          const data = JSON.parse(saved);
-          this.player.coal = data.coal || 0;
-          if(data.pickaxe) {
-            this.player.pickaxe.level = data.pickaxe.level || 1;
-            this.player.pickaxe.clickPower = data.pickaxe.clickPower || 1;
-            this.player.pickaxe.upgradeCost = data.pickaxe.upgradeCost || 15;
-          }
-          this.player.autoMineLevel = data.autoMineLevel || 0;
-          this.player.autoMinePower = data.autoMinePower || 0;
-          this.player.autoMineCost = data.autoMineCost || 50;
-        } catch {
-          localStorage.removeItem('ultimateMineSave');
-        }
-      }
-    }
-
-    autoMineTick(time) {
-      if(!this.lastAutoMineTime) this.lastAutoMineTime = time;
-      if(time - this.lastAutoMineTime >= this.player.autoMineIntervalMs) {
-        this.player.addCoal(this.player.autoMinePower);
-        this.lastAutoMineTime = time;
-        this.updateUI();
-      }
-    }
-
-    drawBackground() {
-      const w = canvas.width;
-      const h = canvas.height;
-      // Темный градиент
-      let grad = ctx.createLinearGradient(0, 0, 0, h);
-      grad.addColorStop(0, '#092635');
-      grad.addColorStop(1, '#01151f');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
-
-      // Стилизация нижнего слоя камней
-      for(let i=0; i<50; i++) {
-        const x = (i * 40 + this.sparkle * 20) % w;
-        const y = 450 + 20 * Math.sin(i + this.sparkle);
-        ctx.fillStyle = `rgba(40,40,50, 0.25)`;
-        ctx.beginPath();
-        ctx.ellipse(x, y, 40, 18, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    drawPickaxe(x, y, level) {
+    draw(ctx) {
       ctx.save();
-      ctx.translate(x, y);
-      ctx.scale(1 + 0.1 * (level - 1), 1 + 0.1 * (level - 1));
-
-      // Простой вид кирки (большой треугольник + рукоять)
-      ctx.fillStyle = '#88ccff';
+      ctx.globalAlpha = this.alpha > 0 ? this.alpha : 0;
+      ctx.fillStyle = '#aaf6ff';
+      ctx.shadowColor = '#aaf6ff';
+      ctx.shadowBlur = 10;
       ctx.beginPath();
-      ctx.moveTo(0, -20);
-      ctx.lineTo(20, 0);
-      ctx.lineTo(0, 20);
-      ctx.closePath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
       ctx.fill();
-
-      ctx.strokeStyle = '#3366aa';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(0, 20);
-      ctx.lineTo(0, 50);
-      ctx.stroke();
-
       ctx.restore();
     }
-
-    drawUI() {
-      ctx.save();
-      ctx.font = '20px Roboto Mono';
-      ctx.fillStyle = '#aaddffcc';
-      ctx.textAlign = 'left';
-      ctx.fillText(`Уголь: ${Math.floor(this.player.coal)}`, 20, 30);
-      ctx.fillText(`Клик: ${this.player.pickaxe.getClickPower()}`, 20, 60);
-      ctx.fillText(`Авто: ${this.player.autoMinePower.toFixed(1)}`, 20, 90);
-
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#99bbffdd';
-      ctx.font = '28px Roboto Mono';
-      ctx.fillText('Нажми по холсту, чтобы добывать уголь!', canvas.width/2, 40);
-
-      // Показываем кирку
-      this.drawPickaxe(canvas.width/2, canvas.height/2 + 50, this.player.pickaxe.level);
-
-      ctx.restore();
-    }
-
-    updateParticles() {
-      for(let i = this.particles.length -1; i >= 0; i--) {
-        const p = this.particles[i];
-        p.update();
-        if(p.alpha <= 0 || p.size <= 0.1) {
-          this.particles.splice(i,1);
-        }
-      }
-    }
-
-    drawParticles() {
-      this.particles.forEach(p => p.draw(ctx));
-    }
-
-    loop(time = 0) {
-      // Обновление времени
-      if(!this.lastTime) this.lastTime = time;
-      const delta = time - this.lastTime;
-      this.lastTime = time;
-
-      // Обновления
-      this.autoMineTick(time);
-      this.updateParticles();
-      this.sparkle += 0.01;
-
-      // Отрисовка
-      this.drawBackground();
-      this.drawParticles();
-      this.drawUI();
-
-      requestAnimationFrame(this.loop.bind(this));
-    }
-
-    startLoop() {
-      requestAnimationFrame(this.loop.bind(this));
+  }
+  function spawnSparkles() {
+    for(let i=0; i<10; i++) {
+      sparkles.push(new Sparkle(W/2 + (Math.random()-0.5)*120, H/2 + (Math.random()-0.5)*90));
     }
   }
 
-  // ==================== Запуск игры =============================
-  const game = new Game();
+  // Рисуем шахту
+  function drawMine(ctx) {
+    const baseX = W/2, baseY = H/2 + 100;
+    ctx.fillStyle = '#3a3f46';
+    ctx.fillRect(baseX - 180, baseY, 360, 200);
+    ctx.fillStyle = '#1f2229';
+    ctx.beginPath();
+    ctx.ellipse(baseX, baseY + 40, 110, 70, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(baseX + 120, baseY - 40);
+    ctx.rotate(Math.sin(Date.now()/400)*0.1);
+    ctx.fillStyle = '#d9d9d9';
+    ctx.shadowColor = '#fff';
+    ctx.shadowBlur = 10;
+    ctx.fillRect(-10, -40, 20, 80);
+    ctx.fillStyle = '#6b6b6b';
+    ctx.beginPath();
+    ctx.moveTo(-10, -40);
+    ctx.lineTo(10, -40);
+    ctx.lineTo(20, -60);
+    ctx.lineTo(-20, -60);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
 
-  // Автосохранение
-  setInterval(() => {
-    game.save();
-  }, 5000);
+  // Главный цикл
+  function gameLoop() {
+    ctx.clearRect(0, 0, W, H);
+    drawMine(ctx);
 
-  // Сохранять при закрытии страницы
-  window.addEventListener('beforeunload', () => game.save());
+    particles = particles.filter(p => p.life > 0 && p.alpha > 0);
+    for(let p of particles) {
+      p.update();
+      p.draw(ctx);
+    }
+
+    sparkles = sparkles.filter(s => s.life > 0 && s.alpha > 0);
+    for(let s of sparkles) {
+      s.update();
+      s.draw(ctx);
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Стартуем
+  updateUI();
+  gameLoop();
+
+  // Магазин с новыми товарами
+  const shopItems = [
+    {
+      id: 'autoMiner',
+      name: 'Автоматический шахтёр',
+      desc: 'Автоматически добывает 1 уголь каждые 2 секунды',
+      cost: 50,
+      purchased: 0,
+      icon: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+      effect: function() {
+        if(!this.timer) {
+          this.timer = setInterval(() => {
+            coal++;
+            xp++;
+            addLog('Автоматический шахтёр добывает 1 уголь', 'info');
+            updateUI();
+            tryLevelUp();
+          }, 2000);
+        }
+      }
+    },
+    {
+      id: 'autoStoneMiner',
+      name: 'Автоматический добытчик камней',
+      desc: 'Автоматически добывает 1 камень каждые 10 секунд',
+      cost: 150,
+      purchased: 0,
+      icon: 'https://cdn-icons-png.flaticon.com/512/616/616408.png',
+      effect: function() {
+        if(!this.timer) {
+          this.timer = setInterval(() => {
+            stones++;
+            xp += 3;
+            addLog('Автоматический добытчик камней добывает 1 камень', 'rare');
+            updateUI();
+            tryLevelUp();
+            spawnSparkles();
+          }, 10000);
+        }
+      }
+    }
+  ];
+
+  function renderShop() {
+    shopItemsContainer.innerHTML = '';
+    for(let item of shopItems) {
+      const div = document.createElement('div');
+      div.classList.add('shopItem');
+
+      const infoDiv = document.createElement('div');
+      infoDiv.classList.add('info');
+
+      const img = document.createElement('img');
+      img.src = item.icon;
+      img.alt = item.name;
+
+      const desc = document.createElement('div');
+      desc.innerHTML = `<strong>${item.name}</strong><br><small>${item.desc}</small>`;
+
+      infoDiv.appendChild(img);
+      infoDiv.appendChild(desc);
+
+      const buyBtn = document.createElement('button');
+      buyBtn.textContent = `Купить (${item.cost} угля)`;
+      buyBtn.disabled = coal < item.cost;
+
+      buyBtn.addEventListener('click', () => {
+        if(coal >= item.cost) {
+          coal -= item.cost;
+          item.purchased++;
+          addLog(`Вы купили: ${item.name} (${item.purchased})`, 'success');
+          item.effect();
+          updateUI();
+          renderShop();
+        }
+      });
+
+      div.appendChild(infoDiv);
+      div.appendChild(buyBtn);
+
+      shopItemsContainer.appendChild(div);
+    }
+  }
+
+  renderShop();
+
+  // Поддержка ресайза окна
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth > 1280 ? 1280 : window.innerWidth;
+    canvas.height = window.innerHeight > 720 ? 720 : window.innerHeight;
+  });
 
 })();
 </script>
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = window.innerWidth > 1280 ? 1280 : window.innerWidth;
+  const H = canvas.height = window.innerHeight > 720 ? 720 : window.innerHeight;
 
-</body>
-</html>
+  const coalCountEl = document.getElementById('coalCount');
+  const pickaxeLevelEl = document.getElementById('pickaxeLevel');
+  const playerLevelEl = document.getElementById('playerLevel');
+  const xpCountEl = document.getElementById('xpCount');
+  const xpNextEl = document.getElementById('xpNext');
+  const mineBtn = document.getElementById('mineBtn');
+  const upgradePickaxeBtn = document.getElementById('upgradePickaxeBtn');
+  const shopToggleBtn = document.getElementById('shopToggleBtn');
+  const shopPanel = document.getElementById('shopPanel');
+  const shopItemsContainer = document.getElementById('shopItems');
+  const closeShopBtn = document.getElementById('closeShopBtn');
+  const logPanel = document.getElementById('logPanel');
+  const levelUpEffect = document.getElementById('levelUpEffect');
+
+  // Новая кнопка добычи камней
+  let mineStoneBtn = document.getElementById('mineStoneBtn');
+  if (!mineStoneBtn) {
+    mineStoneBtn = document.createElement('button');
+    mineStoneBtn.id = 'mineStoneBtn';
+    mineStoneBtn.textContent = 'Копать камни (редко)';
+    mineStoneBtn.style.marginTop = '8px';
+    document.getElementById('ui').insertBefore(mineStoneBtn, upgradePickaxeBtn.nextSibling);
+  }
+
+  // Иконки
+  const iconCoal = new Image();
+  iconCoal.src = "https://cdn-icons-png.flaticon.com/512/3208/3208721.png";
+
+  const iconPickaxe = new Image();
+  iconPickaxe.src = "https://cdn-icons-png.flaticon.com/512/854/854878.png";
+
+  const iconStone = new Image();
+  iconStone.src = "https://cdn-icons-png.flaticon.com/512/1673/1673763.png"; // камень
+
+  // Звуки
+  const soundMine = new Audio('https://freesound.org/data/previews/66/66717_634166-lq.mp3');
+  soundMine.volume = 0.1;
+
+  const soundUpgrade = new Audio('https://freesound.org/data/previews/250/250629_4486188-lq.mp3');
+  soundUpgrade.volume = 0.07;
+
+  const soundLevelUp = new Audio('https://freesound.org/data/previews/331/331912_3248244-lq.mp3');
+  soundLevelUp.volume = 0.15;
+
+  const soundStoneMine = new Audio('https://freesound.org/data/previews/45/45428_512123-lq.mp3');
+  soundStoneMine.volume = 0.12;
+
+  // Фоновая музыка (тихо)
+  const bgMusic = new Audio('https://cdn.pixabay.com/download/audio/2022/04/19/audio_22ad6f0c87.mp3?filename=soft-melody-14078.mp3');
+  bgMusic.loop = true;
+  bgMusic.volume = 0.05;
+  bgMusic.play().catch(() => {
+    // Автовоспроизведение может быть заблокировано браузером, ок
+  });
+
+  // Игровые данные
+  let coal = 0;
+  let stones = 0; // новый ресурс
+  let pickaxeLevel = 1;
+  let xp = 0;
+  let level = 1;
+  let xpForNext = 10;
+  let isShopOpen = false;
+
+  // Квесты
+  const quests = [
+    { id: 1, description: 'Добыть 50 угля', goal: 50, progress: 0, reward: 20, completed: false },
+    { id: 2, description: 'Добыть 10 камней', goal: 10, progress: 0, reward: 50, completed: false },
+    { id: 3, description: 'Достичь 5 уровня', goal: 5, progress: 0, reward: 100, completed: false },
+  ];
+
+  // Достижения
+  const achievements = [
+    { id: 'ach1', title: 'Новичок шахтёр', desc: 'Добыть первый уголь', unlocked: false, rewardXP: 5 },
+    { id: 'ach2', title: 'Каменолом', desc: 'Добыть 100 камней', unlocked: false, rewardXP: 50 },
+    { id: 'ach3', title: 'Покоритель уровней', desc: 'Достичь 10 уровня', unlocked: false, rewardXP: 150 },
+  ];
+
+  // Логи с цветами
+  function addLog(text, type = 'info') {
+    const div = document.createElement('div');
+    div.textContent = text;
+    switch(type) {
+      case 'info': div.style.color = '#ddd'; break;
+      case 'success': div.style.color = '#7cfc00'; break;
+      case 'warn': div.style.color = '#ffa500'; break;
+      case 'error': div.style.color = '#ff4c4c'; break;
+      case 'rare': div.style.color = '#4dd0e1'; break;
+      case 'achievement': div.style.color = '#ffb400'; div.style.fontWeight = 'bold'; break;
+      default: div.style.color = '#ddd';
+    }
+    logPanel.prepend(div);
+    if(logPanel.childElementCount > 25) {
+      logPanel.removeChild(logPanel.lastChild);
+    }
+  }
+
+  // Обновление UI
+  function updateUI() {
+    coalCountEl.textContent = coal;
+    pickaxeLevelEl.textContent = pickaxeLevel;
+    playerLevelEl.textContent = level;
+    xpCountEl.textContent = xp;
+    xpNextEl.textContent = xpForNext;
+
+    upgradePickaxeBtn.textContent = `Улучшить Кирку (${10 * pickaxeLevel} угля)`;
+    upgradePickaxeBtn.disabled = coal < 10 * pickaxeLevel;
+
+    mineBtn.disabled = false;
+    mineStoneBtn.disabled = false;
+
+    // Добавим камни в UI
+    if (!document.getElementById('stoneCount')) {
+      const div = document.createElement('div');
+      div.id = 'stoneCountDiv';
+      div.style.marginTop = '6px';
+      div.innerHTML = `<img class="icon" src="${iconStone.src}" alt="Камни"> Камни: <span id="stoneCount">0</span>`;
+      document.getElementById('resources').appendChild(div);
+    }
+    document.getElementById('stoneCount').textContent = stones;
+
+    renderQuests();
+    renderAchievements();
+  }
+
+  // Прокачка уровня игрока
+  function tryLevelUp() {
+    while (xp >= xpForNext) {
+      xp -= xpForNext;
+      level++;
+      xpForNext = Math.floor(xpForNext * 1.6);
+      showLevelUpEffect();
+      soundLevelUp.play();
+      addLog(`Поздравляем! Вы достигли уровня ${level}!`, 'success');
+      checkQuests();
+      checkAchievements();
+    }
+  }
+
+  // Эффект повышения уровня
+  function showLevelUpEffect() {
+    levelUpEffect.style.opacity = 1;
+    setTimeout(() => {
+      levelUpEffect.style.opacity = 0;
+    }, 2200);
+  }
+
+  // Добыча угля
+  function mineCoal() {
+    let amount = pickaxeLevel + Math.floor(Math.random() * pickaxeLevel);
+    coal += amount;
+    xp += amount;
+    updateQuestProgress('coal', amount);
+    addLog(`Вы выкопали ${amount} угля!`, 'info');
+    soundMine.currentTime = 0;
+    soundMine.play();
+    tryLevelUp();
+    updateUI();
+    spawnMiningParticles('#ffec47');
+  }
+
+  // Добыча камней (редко)
+  function mineStone() {
+    let chance = Math.random();
+    if (chance < 0.25) { // 25% шанс получить камень
+      let amount = 1 + Math.floor(Math.random() * 2);
+      stones += amount;
+      xp += amount * 2;
+      updateQuestProgress('stone', amount);
+      addLog(`Вы нашли ${amount} камня!`, 'rare');
+      soundStoneMine.currentTime = 0;
+      soundStoneMine.play();
+      tryLevelUp();
+      updateUI();
+      spawnMiningParticles('#9be2e8');
+      spawnSparkles();
+    } else {
+      addLog('Камни не найдены. Попробуйте ещё.', 'warn');
+    }
+  }
+
+  // Улучшение кирки
+  function upgradePickaxe() {
+    let cost = 10 * pickaxeLevel;
+    if(coal >= cost) {
+      coal -= cost;
+      pickaxeLevel++;
+      addLog(`Кирка улучшена до уровня ${pickaxeLevel}!`, 'success');
+      soundUpgrade.play();
+      updateUI();
+    }
+  }
+
+  // Магазин
+  shopToggleBtn.addEventListener('click', () => {
+    isShopOpen = !isShopOpen;
+    shopPanel.style.display = isShopOpen ? 'block' : 'none';
+  });
+
+  closeShopBtn.addEventListener('click', () => {
+    isShopOpen = false;
+    shopPanel.style.display = 'none';
+  });
+
+  // Квесты: отрисовка и обновление
+  const questsContainer = document.createElement('div');
+  questsContainer.style.position = 'fixed';
+  questsContainer.style.bottom = '10px';
+  questsContainer.style.left = '10px';
+  questsContainer.style.background = 'rgba(0,0,0,0.7)';
+  questsContainer.style.color = '#eee';
+  questsContainer.style.padding = '10px';
+  questsContainer.style.borderRadius = '8px';
+  questsContainer.style.maxWidth = '300px';
+  questsContainer.style.fontFamily = 'Arial, sans-serif';
+  questsContainer.style.fontSize = '14px';
+  document.body.appendChild(questsContainer);
+
+  function renderQuests() {
+    questsContainer.innerHTML = '<strong>Квесты:</strong><br>';
+    for (const q of quests) {
+      const progPercent = Math.min(100, (q.progress / q.goal) * 100);
+      questsContainer.innerHTML += `
+        <div style="margin:5px 0;">
+          ${q.description} <br>
+          <progress max="100" value="${progPercent}" style="width:100%;"></progress>
+          ${q.completed ? '✅ Выполнено' : ''}
+        </div>
+      `;
+    }
+  }
+
+  function updateQuestProgress(type, amount) {
+    for (const q of quests) {
+      if (q.completed) continue;
+      if(type === 'coal' && q.id === 1) {
+        q.progress += amount;
+      }
+      if(type === 'stone' && q.id === 2) {
+        q.progress += amount;
+      }
+      if(q.id === 3) {
+        q.progress = level;
+      }
+      if(q.progress >= q.goal) {
+        q.completed = true;
+        addLog(`Квест выполнен: ${q.description}`, 'achievement');
+        coal += q.reward;
+        addLog(`Награда: ${q.reward} угля`, 'success');
+        updateUI();
+      }
+    }
+  }
+
+  // Достижения
+  const achievementsContainer = document.createElement('div');
+  achievementsContainer.style.position = 'fixed';
+  achievementsContainer.style.top = '10px';
+  achievementsContainer.style.right = '10px';
+  achievementsContainer.style.background = 'rgba(0,0,0,0.8)';
+  achievementsContainer.style.color = '#ffb400';
+  achievementsContainer.style.padding = '12px';
+  achievementsContainer.style.borderRadius = '10px';
+  achievementsContainer.style.fontFamily = 'Arial, sans-serif';
+  achievementsContainer.style.fontSize = '14px';
+  achievementsContainer.style.minWidth = '250px';
+  document.body.appendChild(achievementsContainer);
+
+  function renderAchievements() {
+    achievementsContainer.innerHTML = '<strong>Достижения:</strong><br>';
+    for (const a of achievements) {
+      achievementsContainer.innerHTML += `
+        <div style="margin:6px 0; opacity: ${a.unlocked ? 1 : 0.4};">
+          <b>${a.title}</b> - ${a.desc} ${a.unlocked ? '✅' : ''}
+        </div>
+      `;
+    }
+  }
+
+  function checkAchievements() {
+    if(!achievements[0].unlocked && coal > 0) {
+      achievements[0].unlocked = true;
+      addLog('Достижение разблокировано: Новичок шахтёр!', 'achievement');
+      xp += achievements[0].rewardXP;
+    }
+    if(!achievements[1].unlocked && stones >= 100) {
+      achievements[1].unlocked = true;
+      addLog('Достижение разблокировано: Каменолом!', 'achievement');
+      xp += achievements[1].rewardXP;
+    }
+    if(!achievements[2].unlocked && level >= 10) {
+      achievements[2].unlocked = true;
+      addLog('Достижение разблокировано: Покоритель уровней!', 'achievement');
+      xp += achievements[2].rewardXP;
+    }
+  }
+
+  // Всплывающие подсказки (тултипы)
+  function addTooltip(el, text) {
+    el.title = text;
+  }
+
+  addTooltip(mineBtn, 'Нажмите, чтобы добыть уголь');
+  addTooltip(mineStoneBtn, 'Клик для добычи камней (шанс 25%)');
+  addTooltip(upgradePickaxeBtn, 'Улучшить кирку для увеличения добычи');
+
+  // Визуальные эффекты при добыче — частички и блески
+  // (твой предыдущий код для Particle и Sparkle сюда)
+
+  // Для краткости не повторяю части с частицами и блесками,
+  // добавь код Particle и Sparkle из предыдущих частей сюда.
+
+  // Отрисовка фона с градиентом и легкой анимацией
+  function drawBackground() {
+    const gradient = ctx.createLinearGradient(0, 0, 0, H);
+    const time = Date.now() / 1000;
+    gradient.addColorStop(0, `hsl(${(time*20)%360}, 30%, 15%)`);
+    gradient.addColorStop(1, '#000000');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Главный цикл игры с фоном
+  function gameLoop() {
+    drawBackground();
+
+    drawMine(ctx);
+
+    particles = particles.filter(p => p.life > 0 && p.alpha > 0);
+    for(let p of particles) {
+      p.update();
+      p.draw(ctx);
+    }
+
+    sparkles = sparkles.filter(s => s.life > 0 && s.alpha > 0);
+    for(let s of sparkles) {
+      s.update();
+      s.draw(ctx);
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Инициализация
+  updateUI();
+  renderShop();
+  gameLoop();
+
+  // События кнопок
+  mineBtn.addEventListener('click', mineCoal);
+  mineStoneBtn.addEventListener('click', mineStone);
+  upgradePickaxeBtn.addEventListener('click', upgradePickaxe);
+
+})();
+</script>
+<script>
+(() => {
+  // Подгружаем/инициализируем сохранение
+  function saveGame() {
+    const saveData = {
+      coal, stones, pickaxeLevel, xp, level, xpForNext,
+      quests, achievements,
+      autoMinerLevel,
+    };
+    localStorage.setItem('coalMinerSave', JSON.stringify(saveData));
+  }
+
+  function loadGame() {
+    const saved = localStorage.getItem('coalMinerSave');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        coal = data.coal || 0;
+        stones = data.stones || 0;
+        pickaxeLevel = data.pickaxeLevel || 1;
+        xp = data.xp || 0;
+        level = data.level || 1;
+        xpForNext = data.xpForNext || 10;
+        if(data.quests) {
+          for(let i=0; i<quests.length; i++) {
+            if(data.quests[i]) {
+              quests[i].progress = data.quests[i].progress || 0;
+              quests[i].completed = data.quests[i].completed || false;
+            }
+          }
+        }
+        if(data.achievements) {
+          for(let i=0; i<achievements.length; i++) {
+            achievements[i].unlocked = data.achievements[i]?.unlocked || false;
+          }
+        }
+        autoMinerLevel = data.autoMinerLevel || 0;
+        updateUI();
+      } catch(e) {
+        console.warn('Ошибка загрузки сохранения', e);
+      }
+    }
+  }
+
+  // Авто-майнер
+  let autoMinerLevel = 0;
+  let autoMinerInterval = null;
+
+  function startAutoMiner() {
+    if(autoMinerLevel <= 0) return;
+    if(autoMinerInterval) clearInterval(autoMinerInterval);
+    autoMinerInterval = setInterval(() => {
+      const baseAmount = autoMinerLevel * 2;
+      coal += baseAmount;
+      xp += baseAmount;
+      updateQuestProgress('coal', baseAmount);
+      addLog(`Автоматическая добыча: +${baseAmount} угля`, 'info');
+      tryLevelUp();
+      updateUI();
+      spawnMiningParticles('#ffe066');
+    }, 3000 / autoMinerLevel);
+  }
+
+  // Остановить авто-майнер (например, при апгрейде)
+  function stopAutoMiner() {
+    if(autoMinerInterval) {
+      clearInterval(autoMinerInterval);
+      autoMinerInterval = null;
+    }
+  }
+
+  // Магазинные товары
+  const shopItems = [
+    {
+      id: 'autoMiner',
+      title: 'Авто-майнер',
+      description: 'Автоматически добывает уголь каждые несколько секунд.',
+      priceCoal: 200,
+      priceStones: 50,
+      maxLevel: 10,
+      level: 0,
+      onBuy() {
+        if(this.level < this.maxLevel) {
+          this.level++;
+          coal -= this.priceCoal;
+          stones -= this.priceStones;
+          addLog(`Вы приобрели авто-майнер уровень ${this.level}`, 'success');
+          autoMinerLevel = this.level;
+          stopAutoMiner();
+          startAutoMiner();
+          updateUI();
+          soundUpgrade.play();
+          saveGame();
+        }
+      },
+      getPrice() {
+        // Цены растут по формуле
+        return {
+          coal: this.priceCoal * (this.level + 1),
+          stones: this.priceStones * (this.level + 1),
+        };
+      },
+    },
+    {
+      id: 'superPickaxe',
+      title: 'Супер кирка',
+      description: 'Увеличивает добычу угля и шанс критического удара.',
+      priceCoal: 150,
+      priceStones: 30,
+      maxLevel: 5,
+      level: 0,
+      onBuy() {
+        if(this.level < this.maxLevel) {
+          this.level++;
+          coal -= this.priceCoal;
+          stones -= this.priceStones;
+          pickaxeLevel += 2;
+          addLog(`Вы улучшили супер кирку до уровня ${this.level}`, 'success');
+          updateUI();
+          soundUpgrade.play();
+          saveGame();
+        }
+      },
+      getPrice() {
+        return {
+          coal: this.priceCoal * (this.level + 1),
+          stones: this.priceStones * (this.level + 1),
+        };
+      },
+    },
+    {
+      id: 'xpBoost',
+      title: 'Ускорение опыта',
+      description: 'Увеличивает получаемый опыт на 50% в течение 1 часа.',
+      priceCoal: 300,
+      priceStones: 100,
+      maxLevel: 1,
+      level: 0,
+      activeUntil: 0,
+      onBuy() {
+        if(this.level < this.maxLevel) {
+          this.level++;
+          coal -= this.priceCoal;
+          stones -= this.priceStones;
+          this.activeUntil = Date.now() + 3600000; // 1 час
+          addLog('Активирован буст опыта на 1 час!', 'success');
+          updateUI();
+          soundUpgrade.play();
+          saveGame();
+        }
+      },
+      getPrice() {
+        return {
+          coal: this.priceCoal,
+          stones: this.priceStones,
+        };
+      },
+      isActive() {
+        return Date.now() < this.activeUntil;
+      }
+    }
+  ];
+
+  // Отрисовка магазина
+  function renderShop() {
+    shopItemsContainer.innerHTML = '';
+    for(const item of shopItems) {
+      const price = item.getPrice();
+      const canBuy = coal >= price.coal && stones >= price.stones && item.level < item.maxLevel;
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'shopItem';
+      itemDiv.style.border = '1px solid #555';
+      itemDiv.style.margin = '8px';
+      itemDiv.style.padding = '10px';
+      itemDiv.style.borderRadius = '6px';
+      itemDiv.style.background = canBuy ? 'rgba(0,128,128,0.2)' : 'rgba(128,128,128,0.1)';
+
+      itemDiv.innerHTML = `
+        <strong>${item.title} ${item.level > 0 ? `(Уровень ${item.level})` : ''}</strong><br>
+        <small>${item.description}</small><br>
+        <span>Цена: <img class="icon" src="${iconCoal.src}" alt="уголь" style="height:16px;vertical-align:middle;">${price.coal} и <img class="icon" src="${iconStone.src}" alt="камень" style="height:16px;vertical-align:middle;">${price.stones}</span><br>
+      `;
+      const btn = document.createElement('button');
+      btn.textContent = item.level >= item.maxLevel ? 'Максимум' : 'Купить';
+      btn.disabled = !canBuy;
+      btn.style.marginTop = '6px';
+      btn.style.width = '100%';
+      btn.addEventListener('click', () => {
+        item.onBuy();
+        renderShop();
+      });
+      itemDiv.appendChild(btn);
+      shopItemsContainer.appendChild(itemDiv);
+    }
+  }
+
+  // Перерисовка UI после покупки
+  function updateUI() {
+    coalCountEl.textContent = coal;
+    pickaxeLevelEl.textContent = pickaxeLevel;
+    playerLevelEl.textContent = level;
+    xpCountEl.textContent = xp;
+    xpNextEl.textContent = xpForNext;
+    upgradePickaxeBtn.textContent = `Улучшить Кирку (${10 * pickaxeLevel} угля)`;
+    upgradePickaxeBtn.disabled = coal < 10 * pickaxeLevel;
+
+    if (!document.getElementById('stoneCount')) {
+      const div = document.createElement('div');
+      div.id = 'stoneCountDiv';
+      div.style.marginTop = '6px';
+      div.innerHTML = `<img class="icon" src="${iconStone.src}" alt="Камни"> Камни: <span id="stoneCount">0</span>`;
+      document.getElementById('resources').appendChild(div);
+    }
+    document.getElementById('stoneCount').textContent = stones;
+
+    renderQuests();
+    renderAchievements();
+    renderShop();
+  }
+
+  // Сохраняем прогресс каждые 15 секунд
+  setInterval(saveGame, 15000);
+
+  // Загружаем прогресс при старте
+  loadGame();
+
+  // Старт авто-майнера если он есть
+  if(autoMinerLevel > 0) startAutoMiner();
+
+})();
+</script>
+<style>
+  body {
+    background: linear-gradient(135deg, #222831, #393e46);
+    color: #eeeeee;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0; padding: 0;
+    overflow-x: hidden;
+  }
+  #gameContainer {
+    max-width: 700px;
+    margin: 20px auto;
+    background: #222831cc;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 0 15px #00adb5;
+  }
+  button {
+    background: #00adb5;
+    border: none;
+    color: #eeeeee;
+    padding: 10px 15px;
+    margin: 8px 0;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  button:hover:not(:disabled) {
+    background-color: #019ca1;
+  }
+  button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+  }
+  .resourceIcon {
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
+    margin-right: 6px;
+    filter: drop-shadow(0 0 1px #00adb5);
+  }
+  #clickerButton {
+    width: 220px;
+    height: 220px;
+    border-radius: 110px;
+    font-size: 28px;
+    font-weight: 900;
+    box-shadow: 0 0 25px #00fff7;
+    background: radial-gradient(circle at center, #00adb5 20%, #222831 80%);
+    transition: box-shadow 0.2s ease;
+    position: relative;
+  }
+  #clickerButton:active {
+    box-shadow: 0 0 50px #00fff7;
+    transform: scale(0.95);
+  }
+  /* Анимация покачивания кирки */
+  @keyframes swing {
+    0% { transform: rotate(0deg) translate(0,0); }
+    50% { transform: rotate(15deg) translate(10px, -10px); }
+    100% { transform: rotate(0deg) translate(0,0); }
+  }
+  #pickaxeIcon {
+    width: 64px;
+    height: 64px;
+    vertical-align: middle;
+    animation-duration: 0.3s;
+    animation-fill-mode: forwards;
+  }
+  #pickaxeIcon.swing {
+    animation-name: swing;
+  }
+  /* Эффекты искр */
+  .spark {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #00fff7;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.8;
+    animation: sparkAnim 0.6s ease-out forwards;
+  }
+  @keyframes sparkAnim {
+    0% { opacity: 1; transform: translate(0,0) scale(1); }
+    100% { opacity: 0; transform: translate(20px,-20px) scale(0.3); }
+  }
+  /* Фоновое свечение */
+  #gameContainer.glow {
+    animation: bgGlow 4s ease-in-out infinite alternate;
+  }
+  @keyframes bgGlow {
+    0% { box-shadow: 0 0 15px #00adb5; }
+    100% { box-shadow: 0 0 40px #00fff7; }
+  }
+</style>
+
+<div id="gameContainer" class="glow">
+  <h1>⚒️ Угольный кликер - Pro Edition</h1>
+  <div>
+    <img id="pickaxeIcon" src="https://i.imgur.com/YLbpPfW.png" alt="Кирка" title="Ваша кирка" />
+    Уровень Кирки: <span id="pickaxeLevel">1</span>
+  </div>
+  <button id="clickerButton" title="Кликни меня!">Кликни Уголь</button>
+  <div id="resources" style="margin-top:10px;">
+    <img class="resourceIcon" src="https://i.imgur.com/ptg3oYc.png" alt="Уголь" title="Уголь"> Уголь: <span id="coalCount">0</span><br>
+    <img class="resourceIcon" src="https://i.imgur.com/RKd8Vzt.png" alt="Камень" title="Камни"> Камни: <span id="stoneCount">0</span><br>
+  </div>
+  <button id="upgradePickaxeBtn" title="Улучшить кирку">Улучшить Кирку (10 угля)</button>
+  <div id="logs" style="height:150px; overflow-y:auto; margin-top:15px; border: 1px solid #00adb5; padding: 6px; background: #222831cc; border-radius: 6px; font-size: 14px;"></div>
+</div>
+
+<script>
+(() => {
+  // Звуки
+  const soundClick = new Audio('https://freesound.org/data/previews/82/82921_1022651-lq.mp3'); 
+  soundClick.volume = 0.1;
+  const soundUpgrade = new Audio('https://freesound.org/data/previews/235/235909_3986063-lq.mp3'); 
+  soundUpgrade.volume = 0.08;
+  const soundCrit = new Audio('https://freesound.org/data/previews/235/235910_3986063-lq.mp3'); 
+  soundCrit.volume = 0.12;
+
+  // Элементы UI
+  const clickerButton = document.getElementById('clickerButton');
+  const coalCountEl = document.getElementById('coalCount');
+  const stoneCountEl = document.getElementById('stoneCount');
+  const pickaxeLevelEl = document.getElementById('pickaxeLevel');
+  const upgradePickaxeBtn = document.getElementById('upgradePickaxeBtn');
+  const pickaxeIcon = document.getElementById('pickaxeIcon');
+  const logsEl = document.getElementById('logs');
+  const gameContainer = document.getElementById('gameContainer');
+
+  // Ресурсы и прокачка
+  let coal = 0;
+  let stones = 0;
+  let pickaxeLevel = 1;
+  let critChance = 0.1; // 10% шанс крит удара
+  let critMultiplier = 2;
+  
+  // Логирование
+  function addLog(text, type='info') {
+    const p = document.createElement('p');
+    p.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+    p.style.margin = '2px 0';
+    if(type === 'error') p.style.color = '#f44336';
+    else if(type === 'success') p.style.color = '#00ffcc';
+    else p.style.color = '#eee';
+    logsEl.appendChild(p);
+    logsEl.scrollTop = logsEl.scrollHeight;
+  }
+
+  // Анимация покачивания кирки
+  function animatePickaxe() {
+    pickaxeIcon.classList.remove('swing');
+    void pickaxeIcon.offsetWidth; // перезапуск анимации
+    pickaxeIcon.classList.add('swing');
+  }
+
+  // Создаем искры на кнопке при клике
+  function createSpark(x, y) {
+    const spark = document.createElement('div');
+    spark.classList.add('spark');
+    spark.style.left = `${x}px`;
+    spark.style.top = `${y}px`;
+    gameContainer.appendChild(spark);
+    setTimeout(() => spark.remove(), 600);
+  }
+
+  // Функция добычи угля при клике
+  function mineCoal() {
+    // Проверка критического удара
+    let amount = pickaxeLevel;
+    const isCrit = Math.random() < critChance;
+    if (isCrit) {
+      amount = Math.floor(amount * critMultiplier);
+      addLog(`Критический удар! +${amount} угля`, 'success');
+      soundCrit.play();
+    } else {
+      soundClick.play();
+    }
+    coal += amount;
+
+    // 20% шанс добыть камень
+    if(Math.random() < 0.2) {
+      stones++;
+      addLog('Вы добыли камень!', 'info');
+    }
+
+    updateResources();
+    animatePickaxe();
+  }
+
+  // Обновление отображения ресурсов
+  function updateResources() {
+    coalCountEl.textContent = coal;
+    stoneCountEl.textContent = stones;
+    pickaxeLevelEl.textContent = pickaxeLevel;
+    upgradePickaxeBtn.textContent = `Улучшить Кирку (${10 * pickaxeLevel} угля)`;
+    upgradePickaxeBtn.disabled = coal < 10 * pickaxeLevel;
+  }
+
+  // Обработка клика по кнопке
+  clickerButton.addEventListener('click', e => {
+    mineCoal();
+    // Добавляем искры в рандомных позициях по кнопке
+    for(let i=0; i<5; i++) {
+      const rect = clickerButton.getBoundingClientRect();
+      const x = Math.random() * rect.width;
+      const y = Math.random() * rect.height;
+      createSpark(x + rect.left, y + rect.top);
+    }
+  });
+
+  // Улучшение кирки
+  upgradePickaxeBtn.addEventListener('click', () => {
+    const cost = 10 * pickaxeLevel;
+    if(coal >= cost) {
+      coal -= cost;
+      pickaxeLevel++;
+      critChance = Math.min(0.3, critChance + 0.02); // увеличиваем шанс крит удара
+      critMultiplier = Math.min(4, critMultiplier + 0.1);
+      addLog(`Кирка улучшена до уровня ${pickaxeLevel}`, 'success');
+      soundUpgrade.play();
+      updateResources();
+    } else {
+      addLog('Недостаточно угля для улучшения', 'error');
+    }
+  });
+
+  updateResources();
+
+  addLog('Добро пожаловать в Угольный кликер Pro Edition!', 'info');
+})();
+</script>
+
+  
