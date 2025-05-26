@@ -1,354 +1,513 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Coal Mine Clicker</title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: radial-gradient(circle at center, #1a1a1a 0%, #0f0f0f 100%);
-      font-family: 'Segoe UI', sans-serif;
-      color: white;
-    }
-    #ui {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.6);
-      padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
-      z-index: 2;
-      user-select: none;
-    }
-    #upgrade-btn, #shop-btn, #reset-btn {
-      margin-top: 10px;
-      padding: 8px 16px;
-      background: linear-gradient(90deg, #444, #666);
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.3s, transform 0.1s;
-    }
-    #upgrade-btn:hover, #shop-btn:hover, #reset-btn:hover {
-      background: linear-gradient(90deg, #555, #777);
-      transform: scale(1.05);
-    }
-    .icon {
-      width: 20px;
-      height: 20px;
-      vertical-align: middle;
-      margin-right: 5px;
-    }
-    #music {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 2;
-    }
-    #shop {
-      position: absolute;
-      top: 150px;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.8);
-      padding: 10px;
-      border-radius: 10px;
-      display: none;
-      flex-direction: column;
-      gap: 8px;
-      z-index: 3;
-      max-width: 250px;
-      max-height: 400px;
-      overflow-y: auto;
-    }
-    .shop-item {
-      background: #333;
-      padding: 8px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .shop-item:hover {
-      background: #555;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Игра: Добыча угля</title>
+<style>
+  body {
+    background: #222;
+    color: #eee;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+  }
+  #game-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 10px;
+  }
+  canvas {
+    background: #333;
+    border: 2px solid #555;
+    display: block;
+    margin: 10px auto;
+    border-radius: 10px;
+  }
+  #stats, #shop, #missions {
+    margin: 10px 0;
+  }
+  button {
+    background: #444;
+    color: #eee;
+    border: none;
+    padding: 10px 15px;
+    margin: 5px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  button:disabled {
+    background: #666;
+    cursor: not-allowed;
+  }
+  #bossBarContainer {
+    width: 100%;
+    background: #600;
+    height: 20px;
+    border-radius: 10px;
+    margin: 10px 0;
+    display: none;
+  }
+  #bossBar {
+    height: 100%;
+    background: #f00;
+    border-radius: 10px;
+    width: 100%;
+    transition: width 0.3s;
+  }
+</style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
-  <div id="ui">
-    <div><img src="https://cdn-icons-png.flaticon.com/512/3208/3208721.png" class="icon" alt="Coal">Уголь: <span id="coal-count">0</span></div>
-    <div><img src="https://cdn-icons-png.flaticon.com/512/854/854878.png" class="icon" alt="Pickaxe">Уровень кирки: <span id="pickaxe-level">1</span></div>
-    <div>🌟 Уровень: <span id="player-level">1</span> | Опыт: <span id="xp-count">0</span></div>
-    <button id="upgrade-btn">🔨 Улучшить кирку (10 угля)</button>
-    <button id="shop-btn">🛒 Магазин</button>
-    <button id="reset-btn" title="Сбросить весь прогресс и начать заново">♻️ Начать заново</button>
+<div id="game-container">
+  <h1>Добыча угля</h1>
+  <canvas id="gameCanvas" width="500" height="400"></canvas>
+  <div id="stats">
+    <div>Уголь: <span id="coalCount">0</span></div>
+    <div>Уровень кирки: <span id="pickaxeLevel">1</span></div>
+    <div>Урон кирки: <span id="pickaxeDamage">1</span></div>
+    <div>XP: <span id="xpCount">0</span> / <span id="xpNext">10</span></div>
+    <div>Уровень игрока: <span id="playerLevel">1</span></div>
   </div>
-  <div id="shop"></div>
-  <audio id="bg-music" src="https://cdn.pixabay.com/download/audio/2022/10/03/audio_8003ec137c.mp3?filename=loop-mine-ambient-121244.mp3" loop autoplay></audio>
+  <button id="upgradePickaxeBtn">Улучшить кирку (100 угля)</button>
+  <div id="bossBarContainer"><div id="bossBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"></div></div>
+  <div id="missions"></div>
+</div>
 
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+<script>
+(() => {
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
 
-    let coal = parseInt(localStorage.getItem("coal") || "0");
-    let pickaxeLevel = parseInt(localStorage.getItem("pickaxeLevel") || "1");
-    let rockHealth = parseInt(localStorage.getItem("rockHealth") || "10");
-    let maxRockHealth = parseInt(localStorage.getItem("maxRockHealth") || "10");
-    let autoClickers = parseInt(localStorage.getItem("autoClickers") || "0");
-    let xp = parseInt(localStorage.getItem("xp") || "0");
-    let level = parseInt(localStorage.getItem("level") || "1");
+  const coalCountEl = document.getElementById("coalCount");
+  const pickaxeLevelEl = document.getElementById("pickaxeLevel");
+  const pickaxeDamageEl = document.getElementById("pickaxeDamage");
+  const xpCountEl = document.getElementById("xpCount");
+  const xpNextEl = document.getElementById("xpNext");
+  const playerLevelEl = document.getElementById("playerLevel");
+  const upgradePickaxeBtn = document.getElementById("upgradePickaxeBtn");
+  const bossBarContainer = document.getElementById("bossBarContainer");
+  const bossBar = document.getElementById("bossBar");
+  const missionsContainer = document.getElementById("missions");
 
-    const coalCountEl = document.getElementById("coal-count");
-    const pickaxeLevelEl = document.getElementById("pickaxe-level");
-    const xpCountEl = document.getElementById("xp-count");
-    const playerLevelEl = document.getElementById("player-level");
-    const upgradeBtn = document.getElementById("upgrade-btn");
-    const shopBtn = document.getElementById("shop-btn");
-    const resetBtn = document.getElementById("reset-btn");
-    const shopDiv = document.getElementById("shop");
+  // Игровые данные
+  let coal = 0;
+  let pickaxeLevel = 1;
+  let pickaxeDamage = 1;
+  let xp = 0;
+  let level = 1;
+  let xpToNext = 10;
 
-    let particles = [];
-    let clickEffects = [];
-    let bossTimer = 0;
-    let bossHealth = 0;
-    let bossActive = false;
+  // Камень (большой круг)
+  const rockPos = { x: canvas.width / 2, y: canvas.height / 2 + 50, radius: 80 };
 
-    const rockPos = {
-      x: canvas.width / 2,
-      y: canvas.height / 2,
-      radius: 100
+  // Частицы для эффектов
+  const particles = [];
+  const clickEffects = [];
+
+  // Редкий камень
+  const rareStonesTypes = [
+    { name: "Рубин", color: "#d43333", xpBonus: 5, coalBonus: 10 },
+    { name: "Изумруд", color: "#33d47a", xpBonus: 7, coalBonus: 15 },
+    { name: "Сапфир", color: "#337ad4", xpBonus: 6, coalBonus: 12 },
+  ];
+  let rareStone = null;
+  let rareStoneActive = false;
+
+  // Босс
+  let bossActive = false;
+  let bossHealth = 0;
+  let bossMaxHealth = 0;
+  let bossTimer = 0;
+
+  // Звуки (простой способ - использовать beep)
+  const sounds = {
+    hit: new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"),
+    upgrade: new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg"),
+    bossHit: new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg"),
+  };
+
+  // Функции
+  function saveGame() {
+    const save = {
+      coal, pickaxeLevel, pickaxeDamage, xp, level,
     };
+    localStorage.setItem("coalGameSave", JSON.stringify(save));
+  }
 
-    function saveProgress() {
-      localStorage.setItem("coal", coal);
-      localStorage.setItem("pickaxeLevel", pickaxeLevel);
-      localStorage.setItem("rockHealth", rockHealth);
-      localStorage.setItem("maxRockHealth", maxRockHealth);
-      localStorage.setItem("autoClickers", autoClickers);
-      localStorage.setItem("xp", xp);
-      localStorage.setItem("level", level);
+  function loadGame() {
+    const save = JSON.parse(localStorage.getItem("coalGameSave"));
+    if (save) {
+      coal = save.coal || 0;
+      pickaxeLevel = save.pickaxeLevel || 1;
+      pickaxeDamage = save.pickaxeDamage || 1;
+      xp = save.xp || 0;
+      level = save.level || 1;
+      updateUI();
     }
+  }
 
-    function getXpToNextLevel(level) {
-      return 20 + (level - 1) * 15;
-    }
-
-    function gainXP(amount) {
-      xp += amount;
-      let needed = getXpToNextLevel(level);
-      while (xp >= needed) {
-        xp -= needed;
-        level++;
-        coal += 10 * level;  // бонус за уровень
-        pickaxeLevel++;
-      }
-      xpCountEl.textContent = xp;
-      playerLevelEl.textContent = level;
-      coalCountEl.textContent = coal;
-      pickaxeLevelEl.textContent = pickaxeLevel;
-      saveProgress();
-    }
-
-    function createParticles(x, y) {
-      for (let i = 0; i < 30; i++) {
-        particles.push({
-          x,
-          y,
-          dx: (Math.random() - 0.5) * 10,
-          dy: (Math.random() - 0.5) * 10,
-          alpha: 1,
-          size: Math.random() * 4 + 2,
-          color: `hsl(${Math.random() * 60 + 20}, 100%, 70%)`
-        });
-      }
-    }
-
-    function createClickEffect(x, y) {
-      clickEffects.push({ x, y, alpha: 1, radius: 0 });
-    }
-
-    canvas.addEventListener("click", (e) => {
-      handleMine(e.clientX, e.clientY);
-    });
-
-    function handleMine(x, y) {
-      const dx = x - rockPos.x;
-      const dy = y - rockPos.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= rockPos.radius) {
-        if (bossActive) {
-          bossHealth -= pickaxeLevel;
-          if (bossHealth <= 0) {
-            coal += 100;
-            bossActive = false;
-          }
-        } else {
-          rockHealth -= pickaxeLevel;
-          if (rockHealth <= 0) {
-            coal += 1;
-            gainXP(1);
-            maxRockHealth += Math.floor(pickaxeLevel * 1.5);
-            rockHealth = maxRockHealth;
-          }
-        }
-        createParticles(x, y);
-        createClickEffect(x, y);
-        coalCountEl.textContent = coal;
-        saveProgress();
-      }
-    }
-
-    upgradeBtn.addEventListener("click", () => {
-      const cost = 10 * pickaxeLevel;
-      if (coal >= cost) {
-        coal -= cost;
-        pickaxeLevel++;
-        maxRockHealth += 10;
-        coalCountEl.textContent = coal;
-        pickaxeLevelEl.textContent = pickaxeLevel;
-        saveProgress();
-      }
-    });
-
-    shopBtn.addEventListener("click", () => {
-      shopDiv.style.display = shopDiv.style.display === "none" ? "flex" : "none";
-    });
-
-    resetBtn.addEventListener("click", () => {
-      if(confirm("Вы действительно хотите сбросить весь прогресс и начать заново?")) {
-        coal = 0;
-        pickaxeLevel = 1;
-        rockHealth = 10;
-        maxRockHealth = 10;
-        autoClickers = 0;
-        xp = 0;
-        level = 1;
-        shopDiv.style.display = "none";
-        coalCountEl.textContent = coal;
-        pickaxeLevelEl.textContent = pickaxeLevel;
-        xpCountEl.textContent = xp;
-        playerLevelEl.textContent = level;
-        saveProgress();
-      }
-    });
-
-    function createShop() {
-      const items = [
-        {
-          name: "Автокликер",
-          cost: 100,
-          action: () => { autoClickers++; }
-        },
-        {
-          name: "Больше урона киркой",
-          cost: 150,
-          action: () => { pickaxeLevel += 1; }
-        }
-      ];
-
-      shopDiv.innerHTML = ""; // очистить перед созданием
-      items.forEach(item => {
-        const el = document.createElement("div");
-        el.className = "shop-item";
-        el.textContent = `${item.name} (${item.cost} угля)`;
-        el.onclick = () => {
-          if (coal >= item.cost) {
-            coal -= item.cost;
-            item.action();
-            coalCountEl.textContent = coal;
-            pickaxeLevelEl.textContent = pickaxeLevel;
-            saveProgress();
-          }
-        };
-        shopDiv.appendChild(el);
-      });
-    }
-
-    function drawRock() {
-      ctx.save();
-      const gradient = ctx.createRadialGradient(rockPos.x, rockPos.y, 40, rockPos.x, rockPos.y, rockPos.radius);
-      gradient.addColorStop(0, bossActive ? "#900" : "#555");
-      gradient.addColorStop(1, "#111");
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(rockPos.x, rockPos.y, rockPos.radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      const health = bossActive ? bossHealth : rockHealth;
-      const maxHealth = bossActive ? 500 : maxRockHealth;
-      const healthRatio = health / maxHealth;
-      ctx.fillStyle = "#333";
-      ctx.fillRect(rockPos.x - 50, rockPos.y + rockPos.radius + 10, 100, 10);
-      ctx.fillStyle = bossActive ? "red" : "lime";
-      ctx.fillRect(rockPos.x - 50, rockPos.y + rockPos.radius + 10, 100 * healthRatio, 10);
-      ctx.restore();
-    }
-
-    function drawParticles() {
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.dx;
-        p.y += p.dy;
-        p.alpha -= 0.02;
-        if (p.alpha <= 0) {
-          particles.splice(i, 1);
-          continue;
-        }
-        ctx.fillStyle = `${p.color}${Math.floor(p.alpha * 255).toString(16).padStart(2, '0')}`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    function drawClickEffects() {
-      for (let i = clickEffects.length - 1; i >= 0; i--) {
-        const e = clickEffects[i];
-        e.radius += 2;
-        e.alpha -= 0.03;
-        if (e.alpha <= 0) {
-          clickEffects.splice(i, 1);
-          continue;
-        }
-        ctx.strokeStyle = `rgba(255,255,255,${e.alpha})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    }
-
-    function animate() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawRock();
-      drawParticles();
-      drawClickEffects();
-
-      bossTimer++;
-      if (!bossActive && bossTimer >= 1000) {
-        bossActive = true;
-        bossHealth = 500 + Math.floor(Math.random() * 200);
-        bossTimer = 0;
-      }
-
-      for (let i = 0; i < autoClickers; i++) {
-        handleMine(rockPos.x, rockPos.y);
-      }
-
-      requestAnimationFrame(animate);
-    }
-
+  function updateUI() {
     coalCountEl.textContent = coal;
     pickaxeLevelEl.textContent = pickaxeLevel;
+    pickaxeDamageEl.textContent = pickaxeDamage;
     xpCountEl.textContent = xp;
     playerLevelEl.textContent = level;
-    createShop();
-    animate();
-  </script>
+    xpNextEl.textContent = xpToNextLevel();
+    upgradePickaxeBtn.disabled = coal < pickaxeLevel * 100;
+  }
+
+  function xpToNextLevel() {
+    return 10 + level * 10;
+  }
+
+  function gainXP(amount) {
+    xp += amount;
+    if (xp >= xpToNextLevel()) {
+      xp -= xpToNextLevel();
+      level++;
+      createLevelUpEffect();
+    }
+    updateUI();
+    saveGame();
+  }
+
+  function addCoal(amount) {
+    coal += amount;
+    updateUI();
+    saveGame();
+  }
+
+  function upgradePickaxe() {
+    const cost = pickaxeLevel * 100;
+    if (coal >= cost) {
+      coal -= cost;
+      pickaxeLevel++;
+      pickaxeDamage = Math.floor(pickaxeDamage * 1.5);
+      createUpgradeEffect();
+      updateUI();
+      saveGame();
+    }
+  }
+
+  upgradePickaxeBtn.onclick = upgradePickaxe;
+
+  // Рисуем камень
+  function drawRock() {
+    ctx.fillStyle = "#555";
+    ctx.beginPath();
+    ctx.arc(rockPos.x, rockPos.y, rockPos.radius, 0, Math.PI * 2);
+    ctx.fill();
+    // Трещины / текстура
+    ctx.strokeStyle = "#444";
+    ctx.lineWidth = 3;
+    for(let i = 0; i < 5; i++) {
+      const angle = i * (Math.PI * 2 / 5);
+      ctx.beginPath();
+      ctx.moveTo(rockPos.x + Math.cos(angle) * 30, rockPos.y + Math.sin(angle) * 30);
+      ctx.lineTo(rockPos.x + Math.cos(angle) * 70, rockPos.y + Math.sin(angle) * 70);
+      ctx.stroke();
+    }
+  }
+
+  // Частицы для эффекта
+  class Particle {
+    constructor(x, y, color, size, lifetime) {
+      this.x = x;
+      this.y = y;
+      this.color = color;
+      this.size = size;
+      this.lifetime = lifetime;
+      this.age = 0;
+      this.vx = (Math.random() - 0.5) * 2;
+      this.vy = (Math.random() - 0.5) * 2;
+    }
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.age++;
+      this.size *= 0.95;
+    }
+    draw() {
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    isAlive() {
+      return this.age < this.lifetime && this.size > 0.5;
+    }
+  }
+
+  function createParticle(x, y, color, size, lifetime) {
+    particles.push(new Particle(x, y, color, size, lifetime));
+  }
+
+  function drawParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      particles[i].update();
+      particles[i].draw();
+      if (!particles[i].isAlive()) particles.splice(i, 1);
+    }
+  }
+
+  // Эффекты клика
+  class ClickEffect {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.radius = 10;
+      this.alpha = 1;
+    }
+    update() {
+      this.radius += 2;
+      this.alpha -= 0.05;
+    }
+    draw() {
+      ctx.strokeStyle = `rgba(255,255,255,${this.alpha})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    isAlive() {
+      return this.alpha > 0;
+    }
+  }
+
+  function createClickEffect(x, y) {
+    clickEffects.push(new ClickEffect(x, y));
+  }
+
+  function drawClickEffects() {
+    for(let i = clickEffects.length - 1; i >= 0; i--) {
+      clickEffects[i].update();
+      clickEffects[i].draw();
+      if(!clickEffects[i].isAlive()) clickEffects.splice(i,1);
+    }
+  }
+
+  // Редкий камень
+  function spawnRareStone() {
+    if(rareStoneActive) return;
+    if(Math.random() < 0.01) { // ~1% шанс каждую секунду
+      const stoneType = rareStonesTypes[Math.floor(Math.random() * rareStonesTypes.length)];
+      rareStone = {
+        x: rockPos.x + (Math.random() - 0.5) * rockPos.radius * 1.5,
+        y: rockPos.y + (Math.random() - 0.5) * rockPos.radius * 1.5,
+        radius: 20,
+        color: stoneType.color,
+        xpBonus: stoneType.xpBonus,
+        coalBonus: stoneType.coalBonus,
+        name: stoneType.name
+      };
+      rareStoneActive = true;
+      setTimeout(() => {
+        rareStoneActive = false;
+        rareStone = null;
+      }, 10000);
+    }
+  }
+
+  // Босс
+  function spawnBoss() {
+    if(bossActive) return;
+    bossActive = true;
+    bossMaxHealth = level * 100;
+    bossHealth = bossMaxHealth;
+    bossTimer = 0;
+    bossBarContainer.style.display = "block";
+    bossBar.style.width = "100%";
+    bossBar.setAttribute("aria-valuemax", bossMaxHealth);
+    bossBar.setAttribute("aria-valuenow", bossHealth);
+  }
+
+  function drawBoss() {
+    if(!bossActive) return;
+    const bossX = rockPos.x;
+    const bossY = rockPos.y - 150;
+    ctx.fillStyle = "darkred";
+    ctx.beginPath();
+    ctx.arc(bossX, bossY, 50, 0, Math.PI * 2);
+    ctx.fill();
+    bossTimer++;
+    if(bossTimer > 1000) {
+      bossActive = false;
+      bossBarContainer.style.display = "none";
+    }
+  }
+
+  // Обработка кликов по камню и боссу
+  canvas.addEventListener("click", e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // Если клик по боссу
+    if(bossActive) {
+      const bossX = rockPos.x;
+      const bossY = rockPos.y - 150;
+      const dist = Math.hypot(mx - bossX, my - bossY);
+      if(dist <= 50) {
+        let damage = pickaxeDamage;
+        // Крит (20% шанс)
+        if(Math.random() < 0.2) damage *= 2;
+        damage = Math.floor(damage);
+        bossHealth -= damage;
+        createBossHitEffect(mx, my);
+        sounds.bossHit.play();
+        if(bossHealth <= 0) {
+          bossActive = false;
+          bossBarContainer.style.display = "none";
+          addCoal(100 + level * 20);
+          gainXP(50 + level * 10);
+          alert("Вы победили босса! Получена награда.");
+        }
+        const percent = Math.max(bossHealth / bossMaxHealth * 100, 0);
+        bossBar.style.width = percent + "%";
+        bossBar.setAttribute("aria-valuenow", bossHealth);
+        saveGame();
+        return;
+      }
+    }
+
+    // Клик по редкому камню
+    if(rareStoneActive && rareStone) {
+      const distStone = Math.hypot(mx - rareStone.x, my - rareStone.y);
+      if(distStone <= rareStone.radius) {
+        addCoal(rareStone.coalBonus);
+        gainXP(rareStone.xpBonus);
+        rareStoneActive = false;
+        rareStone = null;
+        sounds.hit.play();
+        createHitEffect(mx, my);
+        saveGame();
+        return;
+      }
+    }
+
+    // Клик по обычному камню
+    const dist = Math.hypot(mx - rockPos.x, my - rockPos.y);
+    if(dist <= rockPos.radius) {
+      addCoal(pickaxeDamage);
+      gainXP(1);
+      createHitEffect(mx, my);
+      sounds.hit.play();
+      saveGame();
+    }
+  });
+
+  // Эффекты
+  function createHitEffect(x, y) {
+    for(let i=0; i<10; i++) createParticle(x, y, "gray", 3, 30);
+    createClickEffect(x, y);
+  }
+  function createBossHitEffect(x, y) {
+    for(let i=0; i<20; i++) createParticle(x, y, "red", 5, 50);
+  }
+  function createUpgradeEffect() {
+    alert("Кирка улучшена!");
+    sounds.upgrade.play();
+  }
+  function createLevelUpEffect() {
+    alert("Поздравляем! Вы повысили уровень!");
+  }
+
+  // Миссии (простая система)
+  const missions = [
+    { id: 1, text: "Собрать 100 угля", goal: 100, progress: 0, reward: 50, completed: false },
+    { id: 2, text: "Достичь уровня 5", goal: 5, progress: 0, reward: 100, completed: false },
+  ];
+
+  function renderMissions() {
+    missionsContainer.innerHTML = "<h3>Миссии</h3>";
+    missions.forEach(m => {
+      const div = document.createElement("div");
+      div.style.marginBottom = "8px";
+      const progressText = m.completed ? "Выполнено" : `${m.progress} / ${m.goal}`;
+      div.innerHTML = `<b>${m.text}</b>: ${progressText} <button ${m.completed ? "disabled" : ""} data-id="${m.id}">${m.completed ? "Выполнено" : "Завершить"}</button>`;
+      missionsContainer.appendChild(div);
+    });
+    missionsContainer.querySelectorAll("button").forEach(btn => {
+      btn.onclick = () => {
+        const id = Number(btn.getAttribute("data-id"));
+        const mission = missions.find(m => m.id === id);
+        if (!mission) return;
+        if (mission.completed) return;
+        if (mission.progress >= mission.goal) {
+          coal += mission.reward;
+          mission.completed = true;
+          alert(`Миссия выполнена! Получено ${mission.reward} угля.`);
+          updateUI();
+          renderMissions();
+          saveGame();
+        } else {
+          alert("Миссия еще не выполнена.");
+        }
+      };
+    });
+  }
+
+  function updateMissions() {
+    // Обновляем прогресс миссий
+    missions.forEach(m => {
+      if (m.completed) return;
+      if (m.id === 1) {
+        m.progress = Math.min(coal, m.goal);
+      } else if (m.id === 2) {
+        m.progress = level;
+      }
+      if (m.progress >= m.goal && !m.completed) {
+        // можно показать уведомление?
+      }
+    });
+    renderMissions();
+  }
+
+  // Основной цикл
+  function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawRock();
+    drawParticles();
+    drawClickEffects();
+
+    if (rareStoneActive && rareStone) {
+      ctx.fillStyle = rareStone.color;
+      ctx.beginPath();
+      ctx.arc(rareStone.x, rareStone.y, rareStone.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(rareStone.name, rareStone.x, rareStone.y + 5);
+    }
+
+    drawBoss();
+    requestAnimationFrame(loop);
+  }
+
+  // Таймеры для спавна редких камней и боссов
+  setInterval(() => {
+    spawnRareStone();
+  }, 1000);
+
+  setInterval(() => {
+    if (!bossActive && Math.random() < 0.005) { // ~0.5% шанс каждую секунду
+      spawnBoss();
+    }
+  }, 1000);
+
+  // Обновляем миссии каждые 2 секунды
+  setInterval(() => {
+    updateMissions();
+  }, 2000);
+
+  loadGame();
+  updateUI();
+  renderMissions();
+  loop();
+})();
+</script>
 </body>
 </html>
