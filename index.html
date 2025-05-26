@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coal Mine Clicker</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #1a1a1a 0%, #0f0f0f 100%);
+      font-family: 'Segoe UI', sans-serif;
+      color: white;
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      z-index: 2;
+      user-select: none;
+    }
+    #upgrade-btn, #shop-btn, #reset-btn {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background: linear-gradient(90deg, #444, #666);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s, transform 0.1s;
+    }
+    #upgrade-btn:hover, #shop-btn:hover, #reset-btn:hover {
+      background: linear-gradient(90deg, #555, #777);
+      transform: scale(1.05);
+    }
+    .icon {
+      width: 20px;
+      height: 20px;
+      vertical-align: middle;
+      margin-right: 5px;
+    }
+    #music {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 2;
+    }
+    #shop {
+      position: absolute;
+      top: 150px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px;
+      border-radius: 10px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 3;
+      max-width: 250px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .shop-item {
+      background: #333;
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .shop-item:hover {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="ui">
+    <div><img src="https://cdn-icons-png.flaticon.com/512/3208/3208721.png" class="icon" alt="Coal">Уголь: <span id="coal-count">0</span></div>
+    <div><img src="https://cdn-icons-png.flaticon.com/512/854/854878.png" class="icon" alt="Pickaxe">Уровень кирки: <span id="pickaxe-level">1</span></div>
+    <div>🌟 Уровень: <span id="player-level">1</span> | Опыт: <span id="xp-count">0</span></div>
+    <button id="upgrade-btn">🔨 Улучшить кирку (10 угля)</button>
+    <button id="shop-btn">🛒 Магазин</button>
+    <button id="reset-btn" title="Сбросить весь прогресс и начать заново">♻️ Начать заново</button>
+  </div>
+  <div id="shop"></div>
+  <audio id="bg-music" src="https://cdn.pixabay.com/download/audio/2022/10/03/audio_8003ec137c.mp3?filename=loop-mine-ambient-121244.mp3" loop autoplay></audio>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let coal = parseInt(localStorage.getItem("coal") || "0");
+    let pickaxeLevel = parseInt(localStorage.getItem("pickaxeLevel") || "1");
+    let rockHealth = parseInt(localStorage.getItem("rockHealth") || "10");
+    let maxRockHealth = parseInt(localStorage.getItem("maxRockHealth") || "10");
+    let autoClickers = parseInt(localStorage.getItem("autoClickers") || "0");
+    let xp = parseInt(localStorage.getItem("xp") || "0");
+    let level = parseInt(localStorage.getItem("level") || "1");
+
+    const coalCountEl = document.getElementById("coal-count");
+    const pickaxeLevelEl = document.getElementById("pickaxe-level");
+    const xpCountEl = document.getElementById("xp-count");
+    const playerLevelEl = document.getElementById("player-level");
+    const upgradeBtn = document.getElementById("upgrade-btn");
+    const shopBtn = document.getElementById("shop-btn");
+    const resetBtn = document.getElementById("reset-btn");
+    const shopDiv = document.getElementById("shop");
+
+    let particles = [];
+    let clickEffects = [];
+    let bossTimer = 0;
+    let bossHealth = 0;
+    let bossActive = false;
+
+    const rockPos = {
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      radius: 100
+    };
+
+    function saveProgress() {
+      localStorage.setItem("coal", coal);
+      localStorage.setItem("pickaxeLevel", pickaxeLevel);
+      localStorage.setItem("rockHealth", rockHealth);
+      localStorage.setItem("maxRockHealth", maxRockHealth);
+      localStorage.setItem("autoClickers", autoClickers);
+      localStorage.setItem("xp", xp);
+      localStorage.setItem("level", level);
+    }
+
+    function getXpToNextLevel(level) {
+      return 20 + (level - 1) * 15;
+    }
+
+    function gainXP(amount) {
+      xp += amount;
+      let needed = getXpToNextLevel(level);
+      while (xp >= needed) {
+        xp -= needed;
+        level++;
+        coal += 10 * level;  // бонус за уровень
+        pickaxeLevel++;
+      }
+      xpCountEl.textContent = xp;
+      playerLevelEl.textContent = level;
+      coalCountEl.textContent = coal;
+      pickaxeLevelEl.textContent = pickaxeLevel;
+      saveProgress();
+    }
+
+    function createParticles(x, y) {
+      for (let i = 0; i < 30; i++) {
+        particles.push({
+          x,
+          y,
+          dx: (Math.random() - 0.5) * 10,
+          dy: (Math.random() - 0.5) * 10,
+          alpha: 1,
+          size: Math.random() * 4 + 2,
+          color: `hsl(${Math.random() * 60 + 20}, 100%, 70%)`
+        });
+      }
+    }
+
+    function createClickEffect(x, y) {
+      clickEffects.push({ x, y, alpha: 1, radius: 0 });
+    }
+
+    canvas.addEventListener("click", (e) => {
+      handleMine(e.clientX, e.clientY);
+    });
+
+    function handleMine(x, y) {
+      const dx = x - rockPos.x;
+      const dy = y - rockPos.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= rockPos.radius) {
+        if (bossActive) {
+          bossHealth -= pickaxeLevel;
+          if (bossHealth <= 0) {
+            coal += 100;
+            bossActive = false;
+          }
+        } else {
+          rockHealth -= pickaxeLevel;
+          if (rockHealth <= 0) {
+            coal += 1;
+            gainXP(1);
+            maxRockHealth += Math.floor(pickaxeLevel * 1.5);
+            rockHealth = maxRockHealth;
+          }
+        }
+        createParticles(x, y);
+        createClickEffect(x, y);
+        coalCountEl.textContent = coal;
+        saveProgress();
+      }
+    }
+
+    upgradeBtn.addEventListener("click", () => {
+      const cost = 10 * pickaxeLevel;
+      if (coal >= cost) {
+        coal -= cost;
+        pickaxeLevel++;
+        maxRockHealth += 10;
+        coalCountEl.textContent = coal;
+        pickaxeLevelEl.textContent = pickaxeLevel;
+        saveProgress();
+      }
+    });
+
+    shopBtn.addEventListener("click", () => {
+      shopDiv.style.display = shopDiv.style.display === "none" ? "flex" : "none";
+    });
+
+    resetBtn.addEventListener("click", () => {
+      if(confirm("Вы действительно хотите сбросить весь прогресс и начать заново?")) {
+        coal = 0;
+        pickaxeLevel = 1;
+        rockHealth = 10;
+        maxRockHealth = 10;
+        autoClickers = 0;
+        xp = 0;
+        level = 1;
+        shopDiv.style.display = "none";
+        coalCountEl.textContent = coal;
+        pickaxeLevelEl.textContent = pickaxeLevel;
+        xpCountEl.textContent = xp;
+        playerLevelEl.textContent = level;
+        saveProgress();
+      }
+    });
+
+    function createShop() {
+      const items = [
+        {
+          name: "Автокликер",
+          cost: 100,
+          action: () => { autoClickers++; }
+        },
+        {
+          name: "Больше урона киркой",
+          cost: 150,
+          action: () => { pickaxeLevel += 1; }
+        }
+      ];
+
+      shopDiv.innerHTML = ""; // очистить перед созданием
+      items.forEach(item => {
+        const el = document.createElement("div");
+        el.className = "shop-item";
+        el.textContent = `${item.name} (${item.cost} угля)`;
+        el.onclick = () => {
+          if (coal >= item.cost) {
+            coal -= item.cost;
+            item.action();
+            coalCountEl.textContent = coal;
+            pickaxeLevelEl.textContent = pickaxeLevel;
+            saveProgress();
+          }
+        };
+        shopDiv.appendChild(el);
+      });
+    }
+
+    function drawRock() {
+      ctx.save();
+      const gradient = ctx.createRadialGradient(rockPos.x, rockPos.y, 40, rockPos.x, rockPos.y, rockPos.radius);
+      gradient.addColorStop(0, bossActive ? "#900" : "#555");
+      gradient.addColorStop(1, "#111");
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(rockPos.x, rockPos.y, rockPos.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      const health = bossActive ? bossHealth : rockHealth;
+      const maxHealth = bossActive ? 500 : maxRockHealth;
+      const healthRatio = health / maxHealth;
+      ctx.fillStyle = "#333";
+      ctx.fillRect(rockPos.x - 50, rockPos.y + rockPos.radius + 10, 100, 10);
+      ctx.fillStyle = bossActive ? "red" : "lime";
+      ctx.fillRect(rockPos.x - 50, rockPos.y + rockPos.radius + 10, 100 * healthRatio, 10);
+      ctx.restore();
+    }
+
+    function drawParticles() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.dx;
+        p.y += p.dy;
+        p.alpha -= 0.02;
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+        ctx.fillStyle = `${p.color}${Math.floor(p.alpha * 255).toString(16).padStart(2, '0')}`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawClickEffects() {
+      for (let i = clickEffects.length - 1; i >= 0; i--) {
+        const e = clickEffects[i];
+        e.radius += 2;
+        e.alpha -= 0.03;
+        if (e.alpha <= 0) {
+          clickEffects.splice(i, 1);
+          continue;
+        }
+        ctx.strokeStyle = `rgba(255,255,255,${e.alpha})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawRock();
+      drawParticles();
+      drawClickEffects();
+
+      bossTimer++;
+      if (!bossActive && bossTimer >= 1000) {
+        bossActive = true;
+        bossHealth = 500 + Math.floor(Math.random() * 200);
+        bossTimer = 0;
+      }
+
+      for (let i = 0; i < autoClickers; i++) {
+        handleMine(rockPos.x, rockPos.y);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    coalCountEl.textContent = coal;
+    pickaxeLevelEl.textContent = pickaxeLevel;
+    xpCountEl.textContent = xp;
+    playerLevelEl.textContent = level;
+    createShop();
+    animate();
+  </script>
+</body>
+</html>
